@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Continuous Integration
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cpplint:
+    name: cpplint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          key: ${{ runner.os }}-cpplint
+          path: ~/.cache/pip
+
+      - name: Pyhton
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: cpplint
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade cpplint
+          cpplint \
+            --repository=. \
+            --recursive \
+            --filter=-whitespace/line_length,-whitespace/braces,-whitespace/comments,-runtime/indentation_namespace,-whitespace/indent,-readability/braces,-whitespace/newline,-readability/todo,-build/c++11 \
+            src
+
+  arduino:
+    name: Arduino
+    needs: cpplint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - core: esp32:esp32
+            board: esp32:esp32:esp32
+            index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          - core: esp32:esp32
+            board: esp32:esp32:esp32
+            index_url: https://espressif.github.io/arduino-esp32/package_esp32_dev_index.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        run: curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+
+      - name: Update core index
+        run: arduino-cli core update-index --additional-urls "${{ matrix.index_url }}"
+
+      - name: Install core
+        run: arduino-cli core install --additional-urls "${{ matrix.index_url }}" ${{ matrix.core }}
+
+      - name: Install ArduinoJson
+        run: arduino-cli lib install ArduinoJson
+
+      - name: Build Example1
+        run: arduino-cli compile --library . --warnings all -b ${{ matrix.board }} "examples/Example1/Example1.ino" --build-property build.extra_flags=-DMYCILA_JSON_SUPPORT
+
+      - name: Build Example2
+        run: arduino-cli compile --library . --warnings all -b ${{ matrix.board }} "examples/Example2/Example2.ino"
+
+  platformio:
+    name: PlatformIO
+    needs: cpplint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: esp32dev|arduino
+            board: esp32dev
+            platform: espressif32
+            opts:
+          - name: esp32dev|arduino-2
+            board: esp32dev
+            platform: espressif32@6.8.1
+            opts:
+          - name: esp32dev|arduino-3
+            board: esp32dev
+            platform: espressif32
+            opts: "--project-option 'platform_packages=platformio/framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32.git#3.0.3, platform_packages=platformio/framework-arduinoespressif32-libs @ https://github.com/espressif/arduino-esp32/releases/download/3.0.3/esp32-arduino-libs-3.0.3.zip'"
+          - name: esp32-s3-devkitc-1|arduino
+            board: esp32-s3-devkitc-1
+            platform: espressif32
+            opts:
+          - name: esp32-s3-devkitc-1|arduino-2
+            board: esp32-s3-devkitc-1
+            platform: espressif32@6.8.1
+            opts:
+          - name: esp32-s3-devkitc-1|arduino-3
+            board: esp32-s3-devkitc-1
+            platform: espressif32
+            opts: "--project-option 'platform_packages=platformio/framework-arduinoespressif32 @ https://github.com/espressif/arduino-esp32.git#3.0.3, platform_packages=platformio/framework-arduinoespressif32-libs @ https://github.com/espressif/arduino-esp32/releases/download/3.0.3/esp32-arduino-libs-3.0.3.zip'"
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: ${{ matrix.name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: pip install platformio
+      - run: platformio platform install ${{ matrix.platform }}
+
+      - name: Build Example1
+        run: PLATFORMIO_BUILD_FLAGS="-Wall -Wextra -DMYCILA_JSON_SUPPORT" platformio ci "examples/Example1/Example1.ino" -l '.' --project-option="lib_deps=bblanchon/ArduinoJson" -b ${{ matrix.board }} ${{ matrix.opts }}
+
+      - name: Build Example2
+        run: PLATFORMIO_BUILD_FLAGS="-Wall -Wextra -DMYCILA_JSON_SUPPORT" platformio ci "examples/Example2/Example2.ino" -l '.' --project-option="lib_deps=bblanchon/ArduinoJson" -b ${{ matrix.board }} ${{ matrix.opts }}
