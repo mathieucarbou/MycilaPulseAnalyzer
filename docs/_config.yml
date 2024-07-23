@@ -1,0 +1,7 @@
+# bundle exec jekyll serve --host=0.0.0.0
+
+title: MycilaPulseAnalyzer
+description: ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit
+remote_theme: pages-themes/cayman@v0.2.0
+plugins:
+  - jekyll-remote-theme
