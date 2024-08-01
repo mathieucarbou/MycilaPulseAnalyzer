@@ -13,10 +13,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#define MYCILA_PULSE_VERSION          "1.0.0"
+#define MYCILA_PULSE_VERSION          "1.0.1"
 #define MYCILA_PULSE_VERSION_MAJOR    1
 #define MYCILA_PULSE_VERSION_MINOR    0
-#define MYCILA_PULSE_VERSION_REVISION 0
+#define MYCILA_PULSE_VERSION_REVISION 1
 
 #ifndef MYCILA_PULSE_SAMPLES
   #define MYCILA_PULSE_SAMPLES 100
