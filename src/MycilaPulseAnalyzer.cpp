@@ -47,6 +47,7 @@ void Mycila::PulseAnalyzer::record(int8_t pinZC) {
   _pinZC = (gpio_num_t)pinZC;
 
   // reset
+  _lastEdge = 0;
   _index = 0;
   for (size_t i = 0; i < MYCILA_PULSE_SAMPLES; i++)
     _times[i] = 0;
@@ -68,8 +69,11 @@ void Mycila::PulseAnalyzer::simulate(int8_t pinZC, int8_t pinOutput, uint32_t ou
     return;
 
   _state = State::SIMULATING;
-  _outputPulseLengthMicros = outputPulseLengthMicros;
   _pinZC = (gpio_num_t)pinZC;
+
+  // reset
+  _lastEdge = 0;
+  _outputPulseLengthMicros = outputPulseLengthMicros;
   _pinOutput = (gpio_num_t)pinOutput;
   pinMode(_pinOutput, OUTPUT);
 
@@ -134,11 +138,18 @@ void IRAM_ATTR Mycila::PulseAnalyzer::recordISRStatic(void* arg) {
     return;
 
   uint32_t now = esp_timer_get_time();
+  uint32_t diff = now - self->_lastEdge;
 
   // Filter out spurious interrupts
   // See: https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection
-  if (now - self->_lastEdge < MYCILA_MIN_PULSE_LENGTH_US)
+  if (diff < MYCILA_MIN_PULSE_LENGTH_US)
     return;
+
+  if (diff > MYCILA_MAX_PULSE_LENGTH_US) {
+    self->_lastEdge = now;
+    self->_index = 0;
+    return;
+  }
 
   self->_lastEdge = now;
 

@@ -26,6 +26,12 @@
   #define MYCILA_MIN_PULSE_LENGTH_US 50
 #endif
 
+#ifndef MYCILA_MAX_PULSE_LENGTH_US
+  #define MYCILA_MAX_PULSE_LENGTH_US 11000
+#endif
+
+// #define MYCILA_PULSE_DEBUG
+
 namespace Mycila {
   class PulseAnalyzer {
     public:

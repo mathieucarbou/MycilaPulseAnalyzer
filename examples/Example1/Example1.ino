@@ -7,9 +7,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial)
     continue;
-}
 
-void loop() {
   // Serial.println("Recording pulse on pin 35");
   pulseAnalyzer.record(35);
 
@@ -26,6 +24,7 @@ void loop() {
   pulseAnalyzer.toJson(doc.to<JsonObject>());
   serializeJson(doc, Serial);
   Serial.println();
+}
 
-  delay(2000);
+void loop() {
 }
