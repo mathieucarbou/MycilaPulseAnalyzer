@@ -33,8 +33,6 @@ namespace Mycila {
         IDLE,
         RECORDING,
         RECORDED,
-        ANALYZING,
-        ANALYZED,
         SIMULATING,
       };
 
@@ -56,6 +54,7 @@ namespace Mycila {
       gpio_num_t getZCPin() const { return _pinZC; }
       gpio_num_t getOutputPin() const { return _pinOutput; }
       State getState() const { return _state; }
+      bool isAnalyzed() const { return _analyzed; }
 
       // Pulse period in microseconds (average of the last N samples)
       uint32_t getPeriod() const { return _period; }
@@ -80,6 +79,7 @@ namespace Mycila {
 
     private:
       gpio_num_t _pinZC = GPIO_NUM_NC;
+      bool _analyzed = false;
       volatile State _state = State::IDLE;
 
       // time of the last edge

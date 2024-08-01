@@ -20,10 +20,6 @@ void loop() {
   // Serial.println("Analyzing pulses");
   pulseAnalyzer.analyze();
 
-  while (pulseAnalyzer.getState() != Mycila::PulseAnalyzer::State::ANALYZED)
-    delay(100);
-  // Serial.println("Pulses analyzed");
-
   pulseAnalyzer.end();
 
   JsonDocument doc;

@@ -80,7 +80,6 @@ void Mycila::PulseAnalyzer::simulate(int8_t pinZC, int8_t pinOutput, uint32_t ou
 void Mycila::PulseAnalyzer::analyze() {
   if (_state != State::RECORDED)
     return;
-  _state = State::ANALYZING;
 
   size_t level;
   uint32_t len;
@@ -125,8 +124,7 @@ void Mycila::PulseAnalyzer::analyze() {
   _periodMin = min[0];
   _periodMax = max[0];
 
-  if (_state == State::ANALYZING)
-    _state = State::ANALYZED;
+  _analyzed = true;
 }
 
 void IRAM_ATTR Mycila::PulseAnalyzer::recordISRStatic(void* arg) {
