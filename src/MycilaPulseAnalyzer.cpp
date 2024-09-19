@@ -35,6 +35,14 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
     return false;
   }
 
+  _lastEdgeTime = 0;
+  _size = 0;
+  _period = 0;
+  _periodMin = 0;
+  _periodMax = 0;
+  _width = 0;
+  _widthMin = 0;
+  _widthMax = 0;
   _enabled = true;
 
   // watchdog
@@ -75,14 +83,6 @@ void Mycila::PulseAnalyzer::end() {
   detachInterrupt(_pinZC);
 
   _pinZC = GPIO_NUM_NC;
-  _lastEdgeTime = 0;
-  _size = 0;
-  _period = 0;
-  _periodMin = 0;
-  _periodMax = 0;
-  _width = 0;
-  _widthMin = 0;
-  _widthMax = 0;
 }
 
 void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
