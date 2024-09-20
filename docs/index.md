@@ -64,10 +64,6 @@ static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   digitalWrite(PIN_OUTPUT, LOW);
 }
 
-static void ARDUINO_ISR_ATTR onOffline(void* arg) {
-  ets_printf("offline\n");
-}
-
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -75,7 +71,6 @@ void setup() {
 
   pinMode(PIN_OUTPUT, OUTPUT);
 
-  pulseAnalyzer.onOffline(onOffline);
   pulseAnalyzer.onEdge(onEdge);
   pulseAnalyzer.onZeroCross(onZeroCross);
 
@@ -89,6 +84,20 @@ Output:
 {"state":0,"period":9994,"period_min":9975,"period_max":10014,"frequency":100.0600357,"width":1168,"width_min":1154,"width_max":1182}
 {"state":0,"period":9993,"period_min":9976,"period_max":10018,"frequency":100.0700455,"width":1166,"width_min":1154,"width_max":1180}
 ```
+
+**Note about ISR**
+
+If your app is NOT doing any flash operation, you could run with:
+
+```
+-D CONFIG_ARDUINO_ISR_IRAM=1
+-D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
+-D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
+-D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
+-D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
+```
+
+Otherwise, no. See: https://github.com/espressif/arduino-esp32/pull/4684
 
 ## Oscilloscope
 

@@ -5,6 +5,22 @@
 #include "MycilaPulseAnalyzer.h"
 #include "Arduino.h"
 
+#ifdef MYCILA_LOGGER_SUPPORT
+  #include <MycilaLogger.h>
+extern Mycila::Logger logger;
+  #define LOGD(tag, format, ...) logger.debug(tag, format, ##__VA_ARGS__)
+  #define LOGI(tag, format, ...) logger.info(tag, format, ##__VA_ARGS__)
+  #define LOGW(tag, format, ...) logger.warn(tag, format, ##__VA_ARGS__)
+  #define LOGE(tag, format, ...) logger.error(tag, format, ##__VA_ARGS__)
+#else
+  #define LOGD(tag, format, ...) ESP_LOGD(tag, format, ##__VA_ARGS__)
+  #define LOGI(tag, format, ...) ESP_LOGI(tag, format, ##__VA_ARGS__)
+  #define LOGW(tag, format, ...) ESP_LOGW(tag, format, ##__VA_ARGS__)
+  #define LOGE(tag, format, ...) ESP_LOGE(tag, format, ##__VA_ARGS__)
+#endif
+
+#define TAG "PULSE"
+
 #ifndef GPIO_IS_VALID_GPIO
   #define GPIO_IS_VALID_GPIO(gpio_num) ((gpio_num >= 0) && \
                                         (((1ULL << (gpio_num)) & SOC_GPIO_VALID_GPIO_MASK) != 0))
@@ -12,7 +28,8 @@
 
 #ifdef MYCILA_JSON_SUPPORT
 void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
-  root["enabled"] = _enabled;
+  root["enabled"] = isEnabled();
+  root["online"] = isOnline();
   root["period"] = _period;
   root["period_min"] = _periodMin;
   root["period_max"] = _periodMax;
@@ -24,16 +41,19 @@ void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
 #endif
 
 bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
-  if (_enabled)
+  if (isEnabled())
     return true;
 
   if (GPIO_IS_VALID_GPIO(pinZC)) {
     _pinZC = (gpio_num_t)pinZC;
     pinMode(_pinZC, INPUT);
   } else {
+    LOGE(TAG, "Invalid ZC input pin: %" PRId8, pinZC);
     _pinZC = GPIO_NUM_NC;
     return false;
   }
+
+  LOGI(TAG, "Enable Pulse Analyzer on pin %" PRIu8, pinZC);
 
   _lastEdgeTime = 0;
   _size = 0;
@@ -43,7 +63,6 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   _width = 0;
   _widthMin = 0;
   _widthMax = 0;
-  _enabled = true;
 
   // watchdog
   _onlineTimer = timerBegin(1000000);
@@ -63,14 +82,14 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   // start
   attachInterruptArg(_pinZC, _edgeISR, this, CHANGE);
 
-  return _enabled;
+  return true;
 }
 
 void Mycila::PulseAnalyzer::end() {
-  if (!_enabled)
+  if (!isEnabled())
     return;
 
-  _enabled = false;
+  LOGI(TAG, "Disable Pulse Analyzer on pin %" PRIu8, (uint8_t)_pinZC);
 
   timerDetachInterrupt(_onlineTimer);
   timerEnd(_onlineTimer);
@@ -85,7 +104,7 @@ void Mycila::PulseAnalyzer::end() {
   _pinZC = GPIO_NUM_NC;
 }
 
-void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
+void Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
   timerStop(instance->_zcTimer);
@@ -103,18 +122,15 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   instance->_width = 0;
   instance->_widthMin = 0;
   instance->_widthMax = 0;
-
-  if (instance->_onOffline)
-    instance->_onOffline(instance->_onOfflineArg);
 }
 
-void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_zcISR(void* arg) {
+void Mycila::PulseAnalyzer::_zcISR(void* arg) {
   // Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
   // if (instance->_onZeroCross)
   //   instance->_onZeroCross(instance->_onZeroCrossArg);
 }
 
-void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
+void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
   const uint32_t now = esp_timer_get_time();

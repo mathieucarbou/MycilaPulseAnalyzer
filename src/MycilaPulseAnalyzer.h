@@ -88,14 +88,6 @@ namespace Mycila {
         _onZeroCrossArg = arg;
       }
 
-      // Callback to be called when the analyzer goes offline
-      // Callback should be marked with ARDUINO_ISR_ATTR and do minimal work.
-      // **MUST BE CALLED BEFORE begin()**
-      void onOffline(Callback callback, void* arg = nullptr) {
-        _onOffline = callback;
-        _onOfflineArg = arg;
-      }
-
       /**
        * @brief Start the analyzer
        * @param pinZC Zero-crossing pin
@@ -114,10 +106,10 @@ namespace Mycila {
 #endif
 
       // true if the analyzer is enabled and running
-      bool isEnabled() const { return _enabled; }
+      bool isEnabled() const { return _pinZC != GPIO_NUM_NC; }
 
       // true if connected to the grid
-      bool isConnected() const { return _enabled && _period > 0; }
+      bool isOnline() const { return isEnabled() && _period > 0; }
 
       gpio_num_t getZCPin() const { return _pinZC; }
 
@@ -140,12 +132,11 @@ namespace Mycila {
 
     private:
       // ISR
-      static void _offlineISR(void* arg);
-      static void _zcISR(void* arg);
-      static void _edgeISR(void* arg);
+      static void ARDUINO_ISR_ATTR _offlineISR(void* arg);
+      static void ARDUINO_ISR_ATTR _zcISR(void* arg);
+      static void ARDUINO_ISR_ATTR _edgeISR(void* arg);
 
       gpio_num_t _pinZC = GPIO_NUM_NC;
-      bool _enabled = false;
 
       // timers
       hw_timer_t* _onlineTimer = nullptr;
@@ -171,7 +162,5 @@ namespace Mycila {
       void* _onEdgeArg = nullptr;
       Callback _onZeroCross = nullptr;
       void* _onZeroCrossArg = nullptr;
-      Callback _onOffline = nullptr;
-      void* _onOfflineArg = nullptr;
   };
 } // namespace Mycila
