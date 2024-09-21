@@ -49,10 +49,7 @@
 #ifndef MYCILA_PULSE_ZC_SHIFT_US
   // Shift the ZC event by this amount of nanoseconds.
   // The ZC event is computed to be sent at half the pulse width (near the zero-cross) and this delay will be added to the computed time.
-  // It depends on the ZCd implementation.
-  // Note; 90 us is equivalent to the minimum delay to reach the required voltage for a gate current of 30mA
-  // This can also be used with a zero-crossing detector based on the BM1Z102FJ chip to shift the ZC event
-  // in relation to the detected pulse edges
+  // The pulse is highly dependant on the ZCD implementation.
   #define MYCILA_PULSE_ZC_SHIFT_US 0
 #endif
 
