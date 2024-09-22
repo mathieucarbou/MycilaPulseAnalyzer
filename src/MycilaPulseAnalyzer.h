@@ -112,10 +112,10 @@ namespace Mycila {
       bool isOnline() const { return isEnabled() && _period > 0; }
 
       gpio_num_t getZCPin() const { return _pinZC; }
-      
+
       // Pulse type detected: pulse or BM1Z102FJ
       Type getType() const { return _type; }
-      
+
       // last event detected: rising or falling edge
       Event getLastEvent() const { return _lastEvent; }
 
