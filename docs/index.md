@@ -15,7 +15,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 ## Features
 
 - Detect Zero-Cross pulse
-- Ability to shift the Zero-Cross event
+- Ability to shift the Zero-Cross event (`MYCILA_PULSE_ZC_SHIFT_US`)
 - Filter spurious Zero-Cross events (noise due to voltage detection)
 - Online / Offline detection
 - Uses only 2 timers

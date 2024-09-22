@@ -20,7 +20,7 @@
 
 #ifndef MYCILA_PULSE_SAMPLES
   // sample count for analysis
-  #define MYCILA_PULSE_SAMPLES 100
+  #define MYCILA_PULSE_SAMPLES 50
 #endif
 
 #ifndef MYCILA_PULSE_MIN_SEMI_PERIOD_US
@@ -34,16 +34,20 @@
 
 #ifndef MYCILA_PULSE_MIN_PULSE_WIDTH_US
   // pulse width filtering
-  #define MYCILA_PULSE_MIN_PULSE_WIDTH_US 50
+  #define MYCILA_PULSE_MIN_PULSE_WIDTH_US 100
 #endif
 #ifndef MYCILA_PULSE_MAX_PULSE_WIDTH_US
   // pulse width filtering
   #define MYCILA_PULSE_MAX_PULSE_WIDTH_US MYCILA_PULSE_MAX_SEMI_PERIOD_US
 #endif
 
-#ifndef MYCILA_PULSE_EQUALITY_DELTA_US
-  // delta between 2 edges to consider the pulses as being equal (same width)
-  #define MYCILA_PULSE_EQUALITY_DELTA_US 1000 // 1 ms
+#ifndef MYCILA_PULSE_ZC_SHIFT_US
+  // Shift to apply when setting the zero-crossing timer.
+  // By default the zero-crossing is set at the middle of the pulse.
+  // This value will be added to determine the zero-crossing timer 0 position.
+  // Example: +100 will shift the zero-crossing event 100us after the middle of the pulse.
+  // This only apply to pulses, not the BM1Z102FJ
+  #define MYCILA_PULSE_ZC_SHIFT_US 0
 #endif
 
 // #define MYCILA_PULSE_DEBUG
@@ -128,9 +132,9 @@ namespace Mycila {
 
     private:
       // ISR
-      static void ARDUINO_ISR_ATTR _offlineISR(void* arg);
-      static void ARDUINO_ISR_ATTR _zcISR(void* arg);
-      static void ARDUINO_ISR_ATTR _edgeISR(void* arg);
+      static void _offlineISR(void* arg);
+      static void _zcISR(void* arg);
+      static void _edgeISR(void* arg);
 
       gpio_num_t _pinZC = GPIO_NUM_NC;
 

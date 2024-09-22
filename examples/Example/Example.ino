@@ -1,4 +1,15 @@
 // Run with -D MYCILA_JSON_SUPPORT
+//
+// if not running any flash operation, you could run with:
+//
+// -D CONFIG_ARDUINO_ISR_IRAM=1
+// -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
+// -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
+// -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
+// -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
+//
+// Otherwise, no. See:
+// https://github.com/espressif/arduino-esp32/pull/4684
 
 #include <ArduinoJson.h>
 #include <MycilaPulseAnalyzer.h>
@@ -57,16 +68,6 @@ void setup() {
   pulseAnalyzer.onZeroCross(onZeroCross);
   pulseAnalyzer.begin(35);
 
-// if not running any flash operation, you could run with:
-//
-// -D CONFIG_ARDUINO_ISR_IRAM=1
-// -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
-// -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
-// -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
-// -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
-//
-// Otherwise, no. See:
-// https://github.com/espressif/arduino-esp32/pull/4684
 #if CONFIG_ARDUINO_ISR_IRAM != 1
   xTaskCreate(flash_operation, "flash_op", 4096, NULL, uxTaskPriorityGet(NULL), NULL);
 #endif
@@ -74,13 +75,15 @@ void setup() {
 
 uint32_t lastTime = 0;
 void loop() {
-  if (millis() - lastTime > 500) {
+  if (millis() - lastTime > 1000) {
     lastTime = millis();
+
     JsonDocument doc;
     pulseAnalyzer.toJson(doc.to<JsonObject>());
+
+    Serial.print(edgeCount / 2 - zeroCrossCount);
+    Serial.print(' ');
     serializeJson(doc, Serial);
     Serial.println();
-    // counts
-    Serial.printf("Diff = %" PRIu32 "\n", edgeCount / 2 - zeroCrossCount);
   }
 }

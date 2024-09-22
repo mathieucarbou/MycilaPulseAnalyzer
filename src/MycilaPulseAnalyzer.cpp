@@ -73,6 +73,7 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   timerStop(_zcTimer);
   timerWrite(_zcTimer, 0);
   timerAttachInterruptArg(_zcTimer, _zcISR, this);
+  timerAlarm(_zcTimer, UINT64_MAX, false, 0);
 
   // start
   attachInterruptArg(_pinZC, _edgeISR, this, CHANGE);
@@ -112,12 +113,17 @@ void Mycila::PulseAnalyzer::end() {
   _widthMax = 0;
 }
 
-void Mycila::PulseAnalyzer::_offlineISR(void* arg) {
+void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_zcISR(void* arg) {
+  Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
+  if (instance->_onZeroCross)
+    instance->_onZeroCross(instance->_onZeroCrossArg);
+}
+
+void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
   timerStop(instance->_zcTimer);
   timerWrite(instance->_zcTimer, 0);
-  timerAlarm(instance->_zcTimer, UINT64_MAX, false, 0);
 
   timerStop(instance->_onlineTimer);
   timerWrite(instance->_onlineTimer, 0);
@@ -136,20 +142,17 @@ void Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   instance->_widthMax = 0;
 }
 
-void Mycila::PulseAnalyzer::_zcISR(void* arg) {
+void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
-  if (instance->_onZeroCross)
-    instance->_onZeroCross(instance->_onZeroCrossArg);
-}
+  hw_timer_t* zcTimer = instance->_zcTimer;
+  hw_timer_t* onlineTimer = instance->_onlineTimer;
 
-void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
-  Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
-
-  const uint32_t diff = timerRead(instance->_onlineTimer);
+  const uint32_t diff = timerRead(onlineTimer);
+  const uint32_t period = instance->_period;
 
   // connected for the first time ?
   if (!diff) {
-    timerStart(instance->_onlineTimer);
+    timerStart(onlineTimer);
 #ifdef MYCILA_PULSE_DEBUG
     ets_printf("init\n");
 #endif
@@ -162,7 +165,7 @@ void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     return;
 
   // Reset Watchdog for online/offline detection
-  timerRestart(instance->_onlineTimer);
+  timerRestart(onlineTimer);
 
   // long time no see ? => reset
   if (diff > MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
@@ -177,30 +180,39 @@ void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   // Edge detection
   const Event event = gpio_get_level(instance->_pinZC) == HIGH ? Event::SIGNAL_RISING : Event::SIGNAL_FALLING;
 
-  // noise in edge detection ?
+  // noise in edge detection ? => reset count, just in case
+  // But this is still possible that the noise is caused by the wrong voltage detection above
+  // so we do not update the zcTimer and we let it run if it was started
   if (instance->_lastEvent == event) {
     instance->_size = 0;
+    instance->_lastEvent = event;
 #ifdef MYCILA_PULSE_DEBUG
     ets_printf("ERR: edge\n");
 #endif
-
-  } else {
-    instance->_lastEvent = event;
-    instance->_widths[instance->_size++] = diff;
+    return;
   }
 
+  instance->_lastEvent = event;
+
   // set alarms for ZC ISR
-  if (instance->_period) {
+  if (period) {
     switch (instance->_type) {
       case Type::TYPE_UNKNOWN:
-        if (instance->_widthMin && instance->_widthMax && instance->_period >= instance->_widthMin && instance->_period <= instance->_widthMax) {
+        // try to detect the BM1Z102FJ pulses (which match the semi-period)
+        if (instance->_widthMin && instance->_widthMax && period >= instance->_widthMin && period <= instance->_widthMax) {
           instance->_type = Type::TYPE_BM1Z102FJ;
           _zcISR(instance);
 
         } else {
           instance->_type = Type::TYPE_PULSE;
-          timerStart(instance->_zcTimer);
-          timerAlarm(instance->_zcTimer, instance->_period, true, 0);
+          timerStart(zcTimer);
+          timerAlarm(zcTimer, period, true, 0);
+          if (event == Event::SIGNAL_FALLING) {
+            int position = diff / 2;
+            if (position >= MYCILA_PULSE_ZC_SHIFT_US)
+              position -= MYCILA_PULSE_ZC_SHIFT_US;
+            timerWrite(zcTimer, position);
+          }
         }
         break;
 
@@ -209,8 +221,12 @@ void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
         break;
 
       case Type::TYPE_PULSE:
-        if (event == Event::SIGNAL_FALLING)
-          timerWrite(instance->_zcTimer, diff / 2);
+        if (event == Event::SIGNAL_FALLING) {
+          int position = diff / 2;
+          if (position >= MYCILA_PULSE_ZC_SHIFT_US)
+            position -= MYCILA_PULSE_ZC_SHIFT_US;
+          timerWrite(zcTimer, position);
+        }
         break;
 
       default:
@@ -219,10 +235,16 @@ void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     }
   }
 
+  // trigger callback
   if (instance->_onEdge)
     instance->_onEdge(event, instance->_onEdgeArg);
 
-  // Pulse analysis
+  // Pulse analysis done ?
+  if (period && instance->_width)
+    return;
+
+  instance->_widths[instance->_size++] = diff;
+
   if (instance->_size == MYCILA_PULSE_SAMPLES) {
     uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
 
