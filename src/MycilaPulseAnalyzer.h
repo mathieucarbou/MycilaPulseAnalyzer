@@ -46,12 +46,7 @@
   #define MYCILA_PULSE_EQUALITY_DELTA_US 1000 // 1 ms
 #endif
 
-#ifndef MYCILA_PULSE_ZC_SHIFT_US
-  // Shift the ZC event by this amount of nanoseconds.
-  // The ZC event is computed to be sent at half the pulse width (near the zero-cross) and this delay will be added to the computed time.
-  // The pulse is highly dependant on the ZCD implementation.
-  #define MYCILA_PULSE_ZC_SHIFT_US 0
-#endif
+// #define MYCILA_PULSE_DEBUG
 
 namespace Mycila {
   class PulseAnalyzer {
@@ -62,9 +57,13 @@ namespace Mycila {
         SIGNAL_RISING = RISING,
         // falling edge of a short pulse
         SIGNAL_FALLING = FALLING,
-        // rising or falling edge of a long pulse which in the case we have only pulses of the same size
-        SIGNAL_CHANGE = CHANGE,
       } Event;
+
+      typedef enum {
+        TYPE_UNKNOWN = 0,
+        TYPE_PULSE = 1,
+        TYPE_BM1Z102FJ = 2,
+      } Type;
 
       typedef void (*EventCallback)(Event event, void* arg);
       typedef void (*Callback)(void* arg);
@@ -81,7 +80,7 @@ namespace Mycila {
       // Callback should be marked with ARDUINO_ISR_ATTR and do minimal work.
       // **MUST BE CALLED BEFORE begin()**
       void onZeroCross(Callback callback, void* arg = nullptr) {
-        _onZeroCross = callback == nullptr ? _zcISR : callback;
+        _onZeroCross = callback;
         _onZeroCrossArg = arg;
       }
 
@@ -118,7 +117,7 @@ namespace Mycila {
       uint32_t getMaxPeriod() const { return _periodMax; }
 
       // Pulse frequency in Hz
-      float getFrequency() const { return _period == 0 ? 0 : 1e6f / _period; }
+      uint32_t getFrequency() const { return _frequency; }
 
       // Pulse width in microseconds (average of the last N samples)
       uint32_t getWidth() const { return _width; }
@@ -142,9 +141,11 @@ namespace Mycila {
       // recording
       uint32_t _widths[MYCILA_PULSE_SAMPLES];
       size_t _size = 0;
-      uint32_t _lastEdgeTime = 0;
+      Event _lastEvent = SIGNAL_NONE;
+      Type _type = TYPE_UNKNOWN;
 
       // measured pulse period
+      uint32_t _frequency = 0;
       uint32_t _period = 0;
       uint32_t _periodMin = 0;
       uint32_t _periodMax = 0;

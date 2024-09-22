@@ -5,6 +5,10 @@
 #include "MycilaPulseAnalyzer.h"
 #include "Arduino.h"
 
+#ifdef MYCILA_PULSE_DEBUG
+  #include <rom/ets_sys.h>
+#endif
+
 #ifdef MYCILA_LOGGER_SUPPORT
   #include <MycilaLogger.h>
 extern Mycila::Logger logger;
@@ -55,29 +59,20 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
 
   LOGI(TAG, "Enable Pulse Analyzer on pin %" PRIu8, pinZC);
 
-  _lastEdgeTime = 0;
-  _size = 0;
-  _period = 0;
-  _periodMin = 0;
-  _periodMax = 0;
-  _width = 0;
-  _widthMin = 0;
-  _widthMax = 0;
-
   // watchdog
   _onlineTimer = timerBegin(1000000);
   assert(_onlineTimer);
   timerStop(_onlineTimer);
   timerWrite(_onlineTimer, 0);
   timerAttachInterruptArg(_onlineTimer, _offlineISR, this);
-  timerAlarm(_onlineTimer, MYCILA_PULSE_SAMPLES * MYCILA_PULSE_MAX_SEMI_PERIOD_US, true, 0);
+  timerAlarm(_onlineTimer, (MYCILA_PULSE_SAMPLES / 2 + 1) * MYCILA_PULSE_MAX_SEMI_PERIOD_US, true, 0);
 
   // zc timer
   _zcTimer = timerBegin(1000000);
   assert(_zcTimer);
   timerStop(_zcTimer);
   timerWrite(_zcTimer, 0);
-  timerAttachInterruptArg(_zcTimer, _onZeroCross, this);
+  timerAttachInterruptArg(_zcTimer, _zcISR, this);
 
   // start
   attachInterruptArg(_pinZC, _edgeISR, this, CHANGE);
@@ -104,10 +99,14 @@ void Mycila::PulseAnalyzer::end() {
   _pinZC = GPIO_NUM_NC;
 
   _size = 0;
-  _lastEdgeTime = 0;
+  _lastEvent = Event::SIGNAL_NONE;
+  _type = Type::TYPE_UNKNOWN;
+
+  _frequency = 0;
   _period = 0;
   _periodMin = 0;
   _periodMax = 0;
+
   _width = 0;
   _widthMin = 0;
   _widthMax = 0;
@@ -124,167 +123,154 @@ void Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   timerWrite(instance->_onlineTimer, 0);
 
   instance->_size = 0;
-  instance->_lastEdgeTime = 0;
+  instance->_lastEvent = Event::SIGNAL_NONE;
+  instance->_type = Type::TYPE_UNKNOWN;
+
+  instance->_frequency = 0;
   instance->_period = 0;
   instance->_periodMin = 0;
   instance->_periodMax = 0;
+
   instance->_width = 0;
   instance->_widthMin = 0;
   instance->_widthMax = 0;
 }
 
 void Mycila::PulseAnalyzer::_zcISR(void* arg) {
-  // Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
-  // if (instance->_onZeroCross)
-  //   instance->_onZeroCross(instance->_onZeroCrossArg);
+  Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
+  if (instance->_onZeroCross)
+    instance->_onZeroCross(instance->_onZeroCrossArg);
 }
 
 void Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
-  const uint32_t now = esp_timer_get_time();
-  const uint32_t before = instance->_lastEdgeTime;
-  const uint32_t diff = now - before;
+  const uint32_t diff = timerRead(instance->_onlineTimer);
 
-  // connected for the first time ? just record its timestamp
-  if (!before) {
-    instance->_lastEdgeTime = now;
-    instance->_size = 0;
+  // connected for the first time ?
+  if (!diff) {
     timerStart(instance->_onlineTimer);
-    timerStart(instance->_zcTimer);
+#ifdef MYCILA_PULSE_DEBUG
+    ets_printf("init\n");
+#endif
     return;
   }
 
-  // Filter out spurious interrupts happening during pulse rise/fall slope
+  // Filter out spurious interrupts happening during a slow rising / falling slope
   // See: https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection
   if (diff < MYCILA_PULSE_MIN_PULSE_WIDTH_US)
     return;
 
-  // save time
-  instance->_lastEdgeTime = now;
+  // Reset Watchdog for online/offline detection
+  timerRestart(instance->_onlineTimer);
 
   // long time no see ? => reset
   if (diff > MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
     instance->_size = 0;
+    instance->_lastEvent = Event::SIGNAL_NONE;
+#ifdef MYCILA_PULSE_DEBUG
+    ets_printf("ERR: diff\n");
+#endif
     return;
   }
 
-  // Reset Watchdog for online/offline detection
-  timerRestart(instance->_onlineTimer);
+  // Edge detection
+  const Event event = gpio_get_level(instance->_pinZC) == HIGH ? Event::SIGNAL_RISING : Event::SIGNAL_FALLING;
 
-  // record new diff
-  instance->_widths[instance->_size++] = diff;
+  // noise in edge detection ?
+  if (instance->_lastEvent == event) {
+    instance->_size = 0;
+#ifdef MYCILA_PULSE_DEBUG
+    ets_printf("ERR: edge\n");
+#endif
 
-  // Edge detection and ZC timer sync
-  Event event = Event::SIGNAL_NONE;
-  if (instance->_size > 1) {
-    const uint32_t prevDiff = instance->_widths[instance->_size - 2];
-    if (diff > prevDiff && diff - prevDiff > MYCILA_PULSE_EQUALITY_DELTA_US) {
-      event = Event::SIGNAL_RISING;
-    } else if (prevDiff > diff && prevDiff - diff > MYCILA_PULSE_EQUALITY_DELTA_US) {
-      event = Event::SIGNAL_FALLING;
-    } else {
-      event = Event::SIGNAL_CHANGE;
+  } else {
+    instance->_lastEvent = event;
+    instance->_widths[instance->_size++] = diff;
+  }
+
+  // set alarms for ZC ISR
+  if (instance->_period) {
+    switch (instance->_type) {
+      case Type::TYPE_UNKNOWN:
+        if (instance->_widthMin && instance->_widthMax && instance->_period >= instance->_widthMin && instance->_period <= instance->_widthMax) {
+          instance->_type = Type::TYPE_BM1Z102FJ;
+          _zcISR(instance);
+
+        } else {
+          instance->_type = Type::TYPE_PULSE;
+          timerStart(instance->_zcTimer);
+          timerAlarm(instance->_zcTimer, instance->_period, true, 0);
+        }
+        break;
+
+      case Type::TYPE_BM1Z102FJ:
+        _zcISR(instance);
+        break;
+
+      case Type::TYPE_PULSE:
+        if (event == Event::SIGNAL_FALLING)
+          timerWrite(instance->_zcTimer, diff / 2);
+        break;
+
+      default:
+        assert(false);
+        break;
     }
   }
 
-  // Edge callback
   if (instance->_onEdge)
     instance->_onEdge(event, instance->_onEdgeArg);
 
   // Pulse analysis
   if (instance->_size == MYCILA_PULSE_SAMPLES) {
-    if (event == Event::SIGNAL_NONE) {
-      // reset index for a next round of capture
-      instance->_size = 0;
-      return;
+    uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
+
+    for (size_t i = event == Event::SIGNAL_RISING ? 0 : 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
+      value = instance->_widths[i];
+      sum += value;
+      if (value < min)
+        min = value;
+      if (value > max)
+        max = value;
     }
 
-    uint8_t bucket;
-    uint32_t width;
-    uint32_t sum[2] = {0, 0};
-    uint32_t min[2] = {UINT32_MAX, UINT32_MAX};
-    uint32_t max[2] = {0, 0};
-
-    if (event == Event::SIGNAL_CHANGE) {
-      // If pulses are all the same (i.e. BM1Z102FJ), we consolidate the results
-
-      // analyze pulse width (which is also the period)
-      for (size_t i = 0; i < MYCILA_PULSE_SAMPLES; i++) {
-        width = instance->_widths[i];
-        sum[0] += width;
-        if (width < min[0])
-          min[0] = width;
-        if (width > max[0])
-          max[0] = width;
-      }
-
-      if (min[0] >= MYCILA_PULSE_MIN_PULSE_WIDTH_US && max[0] <= MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
-        width = sum[0] / MYCILA_PULSE_SAMPLES;
-        instance->_width = width;
-        instance->_widthMin = min[0];
-        instance->_widthMax = max[0];
-        instance->_period = width;
-        instance->_periodMin = min[0];
-        instance->_periodMax = max[0];
-      }
-
-      timerWrite(instance->_zcTimer, -MYCILA_PULSE_ZC_SHIFT_US);
+    if (min >= MYCILA_PULSE_MIN_PULSE_WIDTH_US && max <= MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
+      instance->_width = sum * 2 / MYCILA_PULSE_SAMPLES;
+      instance->_widthMin = min;
+      instance->_widthMax = max;
 
     } else {
-      // regular case: short and long pulses
-
-      // Iterate over all entries, considering that we have 2 entries per pulse (short and long, or long and short).
-      // If pulses are all the same, we will consolidate the results at the end.
-      for (size_t i = 0; i < MYCILA_PULSE_SAMPLES; i++) {
-        bucket = i % 2;
-        width = instance->_widths[i];
-        sum[bucket] += width;
-        if (width < min[bucket])
-          min[bucket] = width;
-        if (width > max[bucket])
-          max[bucket] = width;
-      }
-
-      // If pulses are not the same, we keep the shortest ones for the pulse width
-      bucket = sum[0] < sum[1] ? 0 : 1;
-
-      if (min[bucket] >= MYCILA_PULSE_MIN_PULSE_WIDTH_US && max[bucket] <= MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
-        width = sum[bucket] * 2 / MYCILA_PULSE_SAMPLES;
-        instance->_width = width;
-        instance->_widthMin = min[bucket];
-        instance->_widthMax = max[bucket];
-      }
-
-      // analyze pulse period
-      sum[0] = 0;
-      min[0] = UINT32_MAX;
-      max[0] = 0;
-
-      for (size_t i = 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
-        width = instance->_widths[i] + instance->_widths[i - 1];
-        sum[0] += width;
-        if (width < min[0])
-          min[0] = width;
-        if (width > max[0])
-          max[0] = width;
-      }
-
-      if (min[0] >= MYCILA_PULSE_MIN_SEMI_PERIOD_US && max[0] <= MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
-        width = sum[0] * 2 / MYCILA_PULSE_SAMPLES;
-        instance->_period = width;
-        instance->_periodMin = min[0];
-        instance->_periodMax = max[0];
-      }
-
-      if (event == Event::SIGNAL_RISING)
-        timerWrite(instance->_zcTimer, instance->_period - instance->_width / 2 - MYCILA_PULSE_ZC_SHIFT_US);
-      else // Event::SIGNAL_FALLING
-        timerWrite(instance->_zcTimer, instance->_width / 2 - MYCILA_PULSE_ZC_SHIFT_US);
+#ifdef MYCILA_PULSE_DEBUG
+      ets_printf("ERR: width\n");
+#endif
     }
 
-    if (instance->_period && instance->_width)
-      timerAlarm(instance->_zcTimer, instance->_period, true, 0);
+    // analyze pulse period
+    value = 0, sum = 0, min = UINT32_MAX, max = 0;
+
+    for (size_t i = 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
+      value = instance->_widths[i] + instance->_widths[i - 1];
+      sum += value;
+      if (value < min)
+        min = value;
+      if (value > max)
+        max = value;
+    }
+
+    if (min >= MYCILA_PULSE_MIN_SEMI_PERIOD_US && max <= MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
+      value = sum * 2 / MYCILA_PULSE_SAMPLES;
+
+      instance->_frequency = (10000000 / value + 5) / 10;
+      instance->_period = 1000000 / instance->_frequency;
+      instance->_periodMin = min;
+      instance->_periodMax = max;
+
+    } else {
+#ifdef MYCILA_PULSE_DEBUG
+      ets_printf("ERR: period\n");
+#endif
+    }
 
     // reset index for a next round of capture
     instance->_size = 0;
