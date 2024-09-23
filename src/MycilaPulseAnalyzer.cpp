@@ -75,24 +75,24 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   // watchdog
   _onlineTimer = timerBegin(1000000);
   timerAttachInterruptArg(_onlineTimer, _offlineISR, this);
-  ESP_ERROR_CHECK(gptimer_stop(_onlineTimer->timer_handle));
-  ESP_ERROR_CHECK(gptimer_set_raw_count(_onlineTimer->timer_handle, 0));
+  gptimer_stop(_onlineTimer->timer_handle);
+  gptimer_set_raw_count(_onlineTimer->timer_handle, 0);
   gptimer_alarm_config_t online_alarm_cfg;
   online_alarm_cfg.alarm_count = (MYCILA_PULSE_SAMPLES / 2 + 1) * MYCILA_PULSE_MAX_SEMI_PERIOD_US;
   online_alarm_cfg.reload_count = 0;
   online_alarm_cfg.flags.auto_reload_on_alarm = true;
-  ESP_ERROR_CHECK(gptimer_set_alarm_action(_onlineTimer->timer_handle, &online_alarm_cfg));
+  gptimer_set_alarm_action(_onlineTimer->timer_handle, &online_alarm_cfg);
 
   // zc timer
   _zcTimer = timerBegin(1000000);
   timerAttachInterruptArg(_zcTimer, _zcISR, this);
-  ESP_ERROR_CHECK(gptimer_stop(_zcTimer->timer_handle));
-  ESP_ERROR_CHECK(gptimer_set_raw_count(_zcTimer->timer_handle, 0));
+  gptimer_stop(_zcTimer->timer_handle);
+  gptimer_set_raw_count(_zcTimer->timer_handle, 0);
   gptimer_alarm_config_t zc_alarm_cfg;
   zc_alarm_cfg.alarm_count = UINT64_MAX;
   zc_alarm_cfg.reload_count = 0;
   zc_alarm_cfg.flags.auto_reload_on_alarm = false;
-  ESP_ERROR_CHECK(gptimer_set_alarm_action(_zcTimer->timer_handle, &zc_alarm_cfg));
+  gptimer_set_alarm_action(_zcTimer->timer_handle, &zc_alarm_cfg);
 
   // start
   attachInterruptArg(_pinZC, _edgeISR, this, CHANGE);
@@ -106,13 +106,13 @@ void Mycila::PulseAnalyzer::end() {
 
   LOGI(TAG, "Disable Pulse Analyzer on pin %" PRIu8, (uint8_t)_pinZC);
 
-  ESP_ERROR_CHECK(gptimer_set_alarm_action(_onlineTimer->timer_handle, nullptr));
-  ESP_ERROR_CHECK(gptimer_stop(_onlineTimer->timer_handle));
+  gptimer_set_alarm_action(_onlineTimer->timer_handle, nullptr);
+  gptimer_stop(_onlineTimer->timer_handle);
   timerEnd(_onlineTimer);
   _onlineTimer = nullptr;
 
-  ESP_ERROR_CHECK(gptimer_set_alarm_action(_zcTimer->timer_handle, nullptr));
-  ESP_ERROR_CHECK(gptimer_stop(_zcTimer->timer_handle));
+  gptimer_set_alarm_action(_zcTimer->timer_handle, nullptr);
+  gptimer_stop(_zcTimer->timer_handle);
   timerEnd(_zcTimer);
   _zcTimer = nullptr;
 
@@ -144,11 +144,11 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_zcISR(void* arg) {
 void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
-  ESP_ERROR_CHECK(gptimer_stop(instance->_zcTimer->timer_handle));
-  ESP_ERROR_CHECK(gptimer_set_raw_count(instance->_zcTimer->timer_handle, 0));
+  gptimer_stop(instance->_zcTimer->timer_handle);
+  gptimer_set_raw_count(instance->_zcTimer->timer_handle, 0);
 
-  ESP_ERROR_CHECK(gptimer_stop(instance->_onlineTimer->timer_handle));
-  ESP_ERROR_CHECK(gptimer_set_raw_count(instance->_onlineTimer->timer_handle, 0));
+  gptimer_stop(instance->_onlineTimer->timer_handle);
+  gptimer_set_raw_count(instance->_onlineTimer->timer_handle, 0);
 
   instance->_size = 0;
   instance->_lastEvent = Event::SIGNAL_NONE;
@@ -171,14 +171,14 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   gptimer_handle_t onlineTimer = instance->_onlineTimer->timer_handle;
 
   uint64_t raw_count;
-  ESP_ERROR_CHECK(gptimer_get_raw_count(onlineTimer, &raw_count));
+  gptimer_get_raw_count(onlineTimer, &raw_count);
 
   const uint32_t diff = static_cast<uint32_t>(raw_count);
   const uint32_t period = instance->_nominalGridPeriod / 2;
 
   // connected for the first time ?
   if (!diff) {
-    ESP_ERROR_CHECK(gptimer_start(onlineTimer));
+    gptimer_start(onlineTimer);
 #ifdef MYCILA_PULSE_DEBUG
     ets_printf("init\n");
 #endif
@@ -191,7 +191,7 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     return;
 
   // Reset Watchdog for online/offline detection
-  ESP_ERROR_CHECK(gptimer_set_raw_count(onlineTimer, 0));
+  gptimer_set_raw_count(onlineTimer, 0);
 
   // long time no see ? => reset
   if (diff > MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
@@ -229,19 +229,19 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
 
         } else {
           instance->_type = Type::TYPE_PULSE;
-          ESP_ERROR_CHECK(gptimer_start(zcTimer));
+          gptimer_start(zcTimer);
 
           gptimer_alarm_config_t alarm_cfg;
           alarm_cfg.alarm_count = period;
           alarm_cfg.reload_count = 0;
           alarm_cfg.flags.auto_reload_on_alarm = true;
-          ESP_ERROR_CHECK(gptimer_set_alarm_action(zcTimer, &alarm_cfg));
+          gptimer_set_alarm_action(zcTimer, &alarm_cfg);
 
           if (event == Event::SIGNAL_FALLING) {
             int position = diff / 2;
             if (position >= MYCILA_PULSE_ZC_SHIFT_US)
               position -= MYCILA_PULSE_ZC_SHIFT_US;
-            ESP_ERROR_CHECK(gptimer_set_raw_count(zcTimer, position));
+            gptimer_set_raw_count(zcTimer, position);
           }
         }
         break;
@@ -255,7 +255,7 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
           int position = diff / 2;
           if (position >= MYCILA_PULSE_ZC_SHIFT_US)
             position -= MYCILA_PULSE_ZC_SHIFT_US;
-          ESP_ERROR_CHECK(gptimer_set_raw_count(zcTimer, position));
+          gptimer_set_raw_count(zcTimer, position);
         }
         break;
 
