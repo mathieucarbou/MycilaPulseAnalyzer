@@ -3,7 +3,9 @@
  * Copyright (C) 2023-2024 Mathieu Carbou
  */
 #include "MycilaPulseAnalyzer.h"
-#include "Arduino.h"
+
+#include <driver/gptimer.h>
+#include <esp32-hal-log.h>
 
 #ifdef MYCILA_PULSE_DEBUG
   #include <rom/ets_sys.h>
@@ -30,14 +32,25 @@ extern Mycila::Logger logger;
                                         (((1ULL << (gpio_num)) & SOC_GPIO_VALID_GPIO_MASK) != 0))
 #endif
 
+// hack to access gptimer_handle_t
+typedef struct {
+    voidFuncPtr fn;
+    void* arg;
+} interrupt_config_t;
+struct timer_struct_t {
+    gptimer_handle_t timer_handle;
+    interrupt_config_t interrupt_handle;
+    bool timer_started;
+};
+
 #ifdef MYCILA_JSON_SUPPORT
 void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
   root["enabled"] = isEnabled();
   root["online"] = isOnline();
+  root["grid_period"] = _nominalGridPeriod;
   root["period"] = _period;
   root["period_min"] = _periodMin;
   root["period_max"] = _periodMax;
-  root["frequency"] = getFrequency();
   root["width"] = _width;
   root["width_min"] = _widthMin;
   root["width_max"] = _widthMax;
@@ -61,19 +74,25 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
 
   // watchdog
   _onlineTimer = timerBegin(1000000);
-  assert(_onlineTimer);
-  timerStop(_onlineTimer);
-  timerWrite(_onlineTimer, 0);
   timerAttachInterruptArg(_onlineTimer, _offlineISR, this);
-  timerAlarm(_onlineTimer, (MYCILA_PULSE_SAMPLES / 2 + 1) * MYCILA_PULSE_MAX_SEMI_PERIOD_US, true, 0);
+  ESP_ERROR_CHECK(gptimer_stop(_onlineTimer->timer_handle));
+  ESP_ERROR_CHECK(gptimer_set_raw_count(_onlineTimer->timer_handle, 0));
+  gptimer_alarm_config_t online_alarm_cfg;
+  online_alarm_cfg.alarm_count = (MYCILA_PULSE_SAMPLES / 2 + 1) * MYCILA_PULSE_MAX_SEMI_PERIOD_US;
+  online_alarm_cfg.reload_count = 0;
+  online_alarm_cfg.flags.auto_reload_on_alarm = true;
+  ESP_ERROR_CHECK(gptimer_set_alarm_action(_onlineTimer->timer_handle, &online_alarm_cfg));
 
   // zc timer
   _zcTimer = timerBegin(1000000);
-  assert(_zcTimer);
-  timerStop(_zcTimer);
-  timerWrite(_zcTimer, 0);
   timerAttachInterruptArg(_zcTimer, _zcISR, this);
-  timerAlarm(_zcTimer, UINT64_MAX, false, 0);
+  ESP_ERROR_CHECK(gptimer_stop(_zcTimer->timer_handle));
+  ESP_ERROR_CHECK(gptimer_set_raw_count(_zcTimer->timer_handle, 0));
+  gptimer_alarm_config_t zc_alarm_cfg;
+  zc_alarm_cfg.alarm_count = UINT64_MAX;
+  zc_alarm_cfg.reload_count = 0;
+  zc_alarm_cfg.flags.auto_reload_on_alarm = false;
+  ESP_ERROR_CHECK(gptimer_set_alarm_action(_zcTimer->timer_handle, &zc_alarm_cfg));
 
   // start
   attachInterruptArg(_pinZC, _edgeISR, this, CHANGE);
@@ -87,11 +106,13 @@ void Mycila::PulseAnalyzer::end() {
 
   LOGI(TAG, "Disable Pulse Analyzer on pin %" PRIu8, (uint8_t)_pinZC);
 
-  timerDetachInterrupt(_onlineTimer);
+  ESP_ERROR_CHECK(gptimer_set_alarm_action(_onlineTimer->timer_handle, nullptr));
+  ESP_ERROR_CHECK(gptimer_stop(_onlineTimer->timer_handle));
   timerEnd(_onlineTimer);
   _onlineTimer = nullptr;
 
-  timerDetachInterrupt(_zcTimer);
+  ESP_ERROR_CHECK(gptimer_set_alarm_action(_zcTimer->timer_handle, nullptr));
+  ESP_ERROR_CHECK(gptimer_stop(_zcTimer->timer_handle));
   timerEnd(_zcTimer);
   _zcTimer = nullptr;
 
@@ -103,10 +124,11 @@ void Mycila::PulseAnalyzer::end() {
   _lastEvent = Event::SIGNAL_NONE;
   _type = Type::TYPE_UNKNOWN;
 
-  _frequency = 0;
   _period = 0;
   _periodMin = 0;
   _periodMax = 0;
+
+  _nominalGridPeriod = 0;
 
   _width = 0;
   _widthMin = 0;
@@ -122,20 +144,21 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_zcISR(void* arg) {
 void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
-  timerStop(instance->_zcTimer);
-  timerWrite(instance->_zcTimer, 0);
+  ESP_ERROR_CHECK(gptimer_stop(instance->_zcTimer->timer_handle));
+  ESP_ERROR_CHECK(gptimer_set_raw_count(instance->_zcTimer->timer_handle, 0));
 
-  timerStop(instance->_onlineTimer);
-  timerWrite(instance->_onlineTimer, 0);
+  ESP_ERROR_CHECK(gptimer_stop(instance->_onlineTimer->timer_handle));
+  ESP_ERROR_CHECK(gptimer_set_raw_count(instance->_onlineTimer->timer_handle, 0));
 
   instance->_size = 0;
   instance->_lastEvent = Event::SIGNAL_NONE;
   instance->_type = Type::TYPE_UNKNOWN;
 
-  instance->_frequency = 0;
   instance->_period = 0;
   instance->_periodMin = 0;
   instance->_periodMax = 0;
+
+  instance->_nominalGridPeriod = 0;
 
   instance->_width = 0;
   instance->_widthMin = 0;
@@ -144,15 +167,18 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_offlineISR(void* arg) {
 
 void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
-  hw_timer_t* zcTimer = instance->_zcTimer;
-  hw_timer_t* onlineTimer = instance->_onlineTimer;
+  gptimer_handle_t zcTimer = instance->_zcTimer->timer_handle;
+  gptimer_handle_t onlineTimer = instance->_onlineTimer->timer_handle;
 
-  const uint32_t diff = timerRead(onlineTimer);
-  const uint32_t period = instance->_period;
+  uint64_t raw_count;
+  ESP_ERROR_CHECK(gptimer_get_raw_count(onlineTimer, &raw_count));
+
+  const uint32_t diff = static_cast<uint32_t>(raw_count);
+  const uint32_t period = instance->_nominalGridPeriod / 2;
 
   // connected for the first time ?
   if (!diff) {
-    timerStart(onlineTimer);
+    ESP_ERROR_CHECK(gptimer_start(onlineTimer));
 #ifdef MYCILA_PULSE_DEBUG
     ets_printf("init\n");
 #endif
@@ -165,7 +191,7 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     return;
 
   // Reset Watchdog for online/offline detection
-  timerRestart(onlineTimer);
+  ESP_ERROR_CHECK(gptimer_set_raw_count(onlineTimer, 0));
 
   // long time no see ? => reset
   if (diff > MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
@@ -185,11 +211,9 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   // so we do not update the zcTimer and we let it run if it was started
   if (instance->_lastEvent == event) {
     instance->_size = 0;
-    instance->_lastEvent = event;
 #ifdef MYCILA_PULSE_DEBUG
     ets_printf("ERR: edge\n");
 #endif
-    return;
   }
 
   instance->_lastEvent = event;
@@ -205,13 +229,19 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
 
         } else {
           instance->_type = Type::TYPE_PULSE;
-          timerStart(zcTimer);
-          timerAlarm(zcTimer, period, true, 0);
+          ESP_ERROR_CHECK(gptimer_start(zcTimer));
+
+          gptimer_alarm_config_t alarm_cfg;
+          alarm_cfg.alarm_count = period;
+          alarm_cfg.reload_count = 0;
+          alarm_cfg.flags.auto_reload_on_alarm = true;
+          ESP_ERROR_CHECK(gptimer_set_alarm_action(zcTimer, &alarm_cfg));
+
           if (event == Event::SIGNAL_FALLING) {
             int position = diff / 2;
             if (position >= MYCILA_PULSE_ZC_SHIFT_US)
               position -= MYCILA_PULSE_ZC_SHIFT_US;
-            timerWrite(zcTimer, position);
+            ESP_ERROR_CHECK(gptimer_set_raw_count(zcTimer, position));
           }
         }
         break;
@@ -225,7 +255,7 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
           int position = diff / 2;
           if (position >= MYCILA_PULSE_ZC_SHIFT_US)
             position -= MYCILA_PULSE_ZC_SHIFT_US;
-          timerWrite(zcTimer, position);
+          ESP_ERROR_CHECK(gptimer_set_raw_count(zcTimer, position));
         }
         break;
 
@@ -243,7 +273,8 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   if (period && instance->_width)
     return;
 
-  instance->_widths[instance->_size++] = diff;
+  instance->_widths[instance->_size] = diff;
+  instance->_size = instance->_size + 1;
 
   if (instance->_size == MYCILA_PULSE_SAMPLES) {
     uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
@@ -282,12 +313,10 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
 
     if (min >= MYCILA_PULSE_MIN_SEMI_PERIOD_US && max <= MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
       value = sum * 2 / MYCILA_PULSE_SAMPLES;
-
-      instance->_frequency = (10000000 / value + 5) / 10;
-      instance->_period = 1000000 / instance->_frequency;
+      instance->_period = value;
       instance->_periodMin = min;
       instance->_periodMax = max;
-
+      instance->_nominalGridPeriod = 1000000 / (1000000 / value / 2);
     } else {
 #ifdef MYCILA_PULSE_DEBUG
       ets_printf("ERR: period\n");

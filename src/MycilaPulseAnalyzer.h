@@ -4,11 +4,12 @@
  */
 #pragma once
 
-#include "hal/gpio_types.h"
-
 #ifdef MYCILA_JSON_SUPPORT
   #include <ArduinoJson.h>
 #endif
+
+#include <esp32-hal-gpio.h>
+#include <esp32-hal-timer.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -25,11 +26,11 @@
 
 #ifndef MYCILA_PULSE_MIN_SEMI_PERIOD_US
   // semi-period check
-  #define MYCILA_PULSE_MIN_SEMI_PERIOD_US 7500 // About 65Hz
+  #define MYCILA_PULSE_MIN_SEMI_PERIOD_US 8000 // About 62.5 Hz
 #endif
 #ifndef MYCILA_PULSE_MAX_SEMI_PERIOD_US
   // semi-period check
-  #define MYCILA_PULSE_MAX_SEMI_PERIOD_US 11000 // about 45Hz
+  #define MYCILA_PULSE_MAX_SEMI_PERIOD_US 10400 // about 48 Hz
 #endif
 
 #ifndef MYCILA_PULSE_MIN_PULSE_WIDTH_US
@@ -127,7 +128,12 @@ namespace Mycila {
       uint32_t getMaxPeriod() const { return _periodMax; }
 
       // Pulse frequency in Hz
-      uint32_t getFrequency() const { return _frequency; }
+      uint32_t getFrequency() const { return _period ? 1000000 / _period : 0; }
+
+      // Nominal grid period in microseconds
+      uint32_t getNominalGridPeriod() const { return _nominalGridPeriod; }
+      // Nominal grid frequency in Hz (50 Hz / 60 Hz)
+      uint32_t getNominalGridFrequency() const { return _nominalGridPeriod ? 1000000 / _nominalGridPeriod : 0; }
 
       // Pulse width in microseconds (average of the last N samples)
       uint32_t getWidth() const { return _width; }
@@ -155,10 +161,12 @@ namespace Mycila {
       Type _type = TYPE_UNKNOWN;
 
       // measured pulse period
-      uint32_t _frequency = 0;
       uint32_t _period = 0;
       uint32_t _periodMin = 0;
       uint32_t _periodMax = 0;
+
+      // nominal values
+      uint32_t _nominalGridPeriod = 0;
 
       // measured pulse width
       uint32_t _width = 0;

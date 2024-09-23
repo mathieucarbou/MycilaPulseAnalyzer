@@ -13,12 +13,14 @@
 //
 // To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=100
 //
-#include <ArduinoJson.h>
 #include <MycilaPulseAnalyzer.h>
+
+#include <esp32-hal-gpio.h>
+#include <esp32-hal.h>
 
 #include <Preferences.h>
 
-#define PIN_OUTPUT      26
+#define PIN_OUTPUT      gpio_num_t::GPIO_NUM_26
 #define OUTPUT_WIDTH_US 1
 
 Mycila::PulseAnalyzer pulseAnalyzer;
@@ -28,15 +30,15 @@ static uint32_t edgeCount = 0;
 static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
     edgeCount++;
-    digitalWrite(PIN_OUTPUT, HIGH);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
     delayMicroseconds(OUTPUT_WIDTH_US);
-    digitalWrite(PIN_OUTPUT, LOW);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     edgeCount++;
-    digitalWrite(PIN_OUTPUT, HIGH);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
     delayMicroseconds(OUTPUT_WIDTH_US);
-    digitalWrite(PIN_OUTPUT, LOW);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
 }
 
@@ -44,14 +46,11 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
 static uint32_t zeroCrossCount = 0;
 static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   zeroCrossCount++;
-  digitalWrite(PIN_OUTPUT, HIGH);
+  ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
   delayMicroseconds(OUTPUT_WIDTH_US);
-  digitalWrite(PIN_OUTPUT, LOW);
+  ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
 }
 
-// Simulate some flash operations at the same time.
-// If the code is pu in IRAM, it will crash
-#if CONFIG_ARDUINO_ISR_IRAM != 1
 static void flash_operation(void* arg) {
   uint64_t crashme = 0;
   while (true) {
@@ -61,7 +60,6 @@ static void flash_operation(void* arg) {
     delay(5);
   }
 }
-#endif
 
 void setup() {
   Serial.begin(115200);
@@ -74,9 +72,10 @@ void setup() {
   pulseAnalyzer.onZeroCross(onZeroCross);
   pulseAnalyzer.begin(35);
 
-#if CONFIG_ARDUINO_ISR_IRAM != 1
+  // Simulate some flash operations at the same time.
+  // If the code is put in IRAM, it will crash
+  // (-D CONFIG_ARDUINO_ISR_IRAM=1)
   xTaskCreate(flash_operation, "flash_op", 4096, NULL, uxTaskPriorityGet(NULL), NULL);
-#endif
 }
 
 uint32_t lastTime = 0;
@@ -84,12 +83,14 @@ void loop() {
   if (millis() - lastTime > 1000) {
     lastTime = millis();
 
+    Serial.printf("%" PRIu32 " F=%" PRIu32 " Hz P=%" PRIu32 " us ", edgeCount / 2 - zeroCrossCount, pulseAnalyzer.getNominalGridFrequency(), pulseAnalyzer.getNominalGridPeriod());
+
+#ifdef MYCILA_JSON_SUPPORT
     JsonDocument doc;
     pulseAnalyzer.toJson(doc.to<JsonObject>());
-
-    Serial.print(edgeCount / 2 - zeroCrossCount);
-    Serial.print(' ');
     serializeJson(doc, Serial);
+#endif
+
     Serial.println();
   }
 }
