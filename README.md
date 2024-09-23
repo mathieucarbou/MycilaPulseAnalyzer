@@ -9,6 +9,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 - [Features](#features)
 - [Supported ZCD Circuits](#supported-zcd-circuits)
 - [Usage](#usage)
+- [IRAM Safety](#iram-safety)
 - [Oscilloscope](#oscilloscope)
 - [Readings](#readings)
 
@@ -19,6 +20,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 - Filter spurious Zero-Cross events (noise due to voltage detection)
 - Online / Offline detection
 - Uses only 2 timers
+- IRAM safe
 - Callbacks for:
   - Zero-Cross,
   - Rising Signal
@@ -85,9 +87,9 @@ Output:
 {"state":0,"period":9993,"period_min":9976,"period_max":10018,"frequency":100.0700455,"width":1166,"width_min":1154,"width_max":1180}
 ```
 
-**Note about ISR**
+## IRAM Safety
 
-If your app is NOT doing any flash operation, you could run with:
+If your app is NOT doing a lot of flash operation, you could run with:
 
 ```
 -D CONFIG_ARDUINO_ISR_IRAM=1
@@ -97,7 +99,9 @@ If your app is NOT doing any flash operation, you could run with:
 -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
 ```
 
-Otherwise, no. See: https://github.com/espressif/arduino-esp32/pull/4684
+This will improve interrupt reliability even when doing flash operations.
+
+Please not that the code may crash with: `Cache disabled but cached memory region accessed` if the ZCD is running while any r/w flash operations are in progress.
 
 ## Oscilloscope
 

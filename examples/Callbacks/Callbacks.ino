@@ -26,16 +26,16 @@
 Mycila::PulseAnalyzer pulseAnalyzer;
 
 // outputs a 1 us pulse when an edge is detected
-static uint32_t edgeCount = 0;
+static volatile uint32_t edgeCount = 0;
 static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
-    edgeCount++;
+    edgeCount = edgeCount + 1;
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
     delayMicroseconds(OUTPUT_WIDTH_US);
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
-    edgeCount++;
+    edgeCount = edgeCount + 1;
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
     delayMicroseconds(OUTPUT_WIDTH_US);
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
@@ -43,9 +43,9 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
 }
 
 // outputs a 1 us pulse when the ZC event is sent
-static uint32_t zeroCrossCount = 0;
+static volatile uint32_t zeroCrossCount = 0;
 static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
-  zeroCrossCount++;
+  zeroCrossCount = zeroCrossCount + 1;
   ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
   delayMicroseconds(OUTPUT_WIDTH_US);
   ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
