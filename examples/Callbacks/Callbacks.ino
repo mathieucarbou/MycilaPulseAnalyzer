@@ -1,6 +1,6 @@
 // Run with -D MYCILA_JSON_SUPPORT
 //
-// if not running any flash operation, you could run with:
+// If not running any flash operation, you could run with:
 //
 // -D CONFIG_ARDUINO_ISR_IRAM=1
 // -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
@@ -10,7 +10,9 @@
 //
 // Otherwise, no. See:
 // https://github.com/espressif/arduino-esp32/pull/4684
-
+//
+// To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=100
+//
 #include <ArduinoJson.h>
 #include <MycilaPulseAnalyzer.h>
 
@@ -21,6 +23,7 @@
 
 Mycila::PulseAnalyzer pulseAnalyzer;
 
+// outputs a 1 us pulse when an edge is detected
 static uint32_t edgeCount = 0;
 static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
@@ -37,6 +40,7 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   }
 }
 
+// outputs a 1 us pulse when the ZC event is sent
 static uint32_t zeroCrossCount = 0;
 static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   zeroCrossCount++;
@@ -45,6 +49,8 @@ static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   digitalWrite(PIN_OUTPUT, LOW);
 }
 
+// Simulate some flash operations at the same time.
+// If the code is pu in IRAM, it will crash
 #if CONFIG_ARDUINO_ISR_IRAM != 1
 static void flash_operation(void* arg) {
   uint64_t crashme = 0;

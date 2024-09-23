@@ -71,8 +71,8 @@ jobs:
       - name: Install ArduinoJson
         run: arduino-cli lib install ArduinoJson
 
-      - name: Build Example
-        run: arduino-cli compile --library . --warnings all -b ${{ matrix.board }} "examples/Example/Example.ino" --build-property build.extra_flags=-DMYCILA_JSON_SUPPORT
+      - name: Build Callbacks
+        run: arduino-cli compile --library . --warnings all -b ${{ matrix.board }} "examples/Callbacks/Callbacks.ino" --build-property build.extra_flags=-DMYCILA_JSON_SUPPORT
 
   platformio:
     name: "pio:${{ matrix.env }}:${{ matrix.board }}"
@@ -128,4 +128,4 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade platformio
       
-      - run: PLATFORMIO_SRC_DIR=examples/Example PIO_BOARD=${{ matrix.board }} pio run -e ${{ matrix.env }}
+      - run: PLATFORMIO_SRC_DIR=examples/Callbacks PIO_BOARD=${{ matrix.board }} pio run -e ${{ matrix.env }}
