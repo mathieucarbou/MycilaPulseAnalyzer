@@ -14,10 +14,10 @@
 #include <cstddef>
 #include <cstdint>
 
-#define MYCILA_PULSE_VERSION          "2.3.0"
+#define MYCILA_PULSE_VERSION          "2.3.1"
 #define MYCILA_PULSE_VERSION_MAJOR    2
 #define MYCILA_PULSE_VERSION_MINOR    3
-#define MYCILA_PULSE_VERSION_REVISION 0
+#define MYCILA_PULSE_VERSION_REVISION 1
 
 #ifndef MYCILA_PULSE_SAMPLES
   // sample count for analysis
