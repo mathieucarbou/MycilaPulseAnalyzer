@@ -20,7 +20,11 @@
 
 #include <Preferences.h>
 
-#define PIN_OUTPUT      gpio_num_t::GPIO_NUM_26
+#ifdef CONFIG_IDF_TARGET_ESP32C3
+  #define PIN_OUTPUT gpio_num_t::GPIO_NUM_21
+#else
+  #define PIN_OUTPUT gpio_num_t::GPIO_NUM_26
+#endif
 #define OUTPUT_WIDTH_US 1
 
 Mycila::PulseAnalyzer pulseAnalyzer;
