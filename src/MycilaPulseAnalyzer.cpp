@@ -316,7 +316,7 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
       instance->_period = value;
       instance->_periodMin = min;
       instance->_periodMax = max;
-      instance->_nominalGridPeriod = 1000000 / (1000000 / value / 2);
+      instance->_nominalGridPeriod = value ? 1000000 / ((10000000 / value + 5) / 20) : 0;
     } else {
 #ifdef MYCILA_PULSE_DEBUG
       ets_printf("ERR: period\n");

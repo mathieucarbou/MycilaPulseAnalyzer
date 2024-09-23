@@ -52,11 +52,12 @@ static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
 }
 
 static void flash_operation(void* arg) {
-  uint64_t crashme = 0;
   while (true) {
     Preferences preferences;
+#if CONFIG_ARDUINO_ISR_IRAM != 1
     preferences.begin("crashme", false);
-    preferences.putULong64("crashme", crashme);
+    preferences.putULong64("crashme", 0);
+#endif
     delay(5);
   }
 }
@@ -73,8 +74,7 @@ void setup() {
   pulseAnalyzer.begin(35);
 
   // Simulate some flash operations at the same time.
-  // If the code is put in IRAM, it will crash
-  // (-D CONFIG_ARDUINO_ISR_IRAM=1)
+  // If the code is put in IRAM with -D CONFIG_ARDUINO_ISR_IRAM=1, it will crash
   xTaskCreate(flash_operation, "flash_op", 4096, NULL, uxTaskPriorityGet(NULL), NULL);
 }
 
