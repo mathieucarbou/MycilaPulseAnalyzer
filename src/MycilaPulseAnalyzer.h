@@ -8,11 +8,8 @@
   #include <ArduinoJson.h>
 #endif
 
-#include <esp32-hal-gpio.h>
-#include <esp32-hal-timer.h>
-
-#include <cstddef>
-#include <cstdint>
+#include <driver/gptimer_types.h>
+#include <hal/gpio_types.h>
 
 #define MYCILA_PULSE_VERSION          "2.3.1"
 #define MYCILA_PULSE_VERSION_MAJOR    2
@@ -59,9 +56,9 @@ namespace Mycila {
       typedef enum {
         SIGNAL_NONE = 0,
         // rising edge of a short pulse
-        SIGNAL_RISING = RISING,
+        SIGNAL_RISING = 0x01, // RISING
         // falling edge of a short pulse
-        SIGNAL_FALLING = FALLING,
+        SIGNAL_FALLING = 0x02, // FALLING
       } Event;
 
       typedef enum {
@@ -74,7 +71,7 @@ namespace Mycila {
       typedef void (*Callback)(void* arg);
 
       // Callback to be called when an edge is detected
-      // Callback should be marked with ARDUINO_ISR_ATTR and do minimal work.
+      // Callback should be in IRAM (IRAM_ATTR) and do minimal work.
       // **MUST BE CALLED BEFORE begin()**
       void onEdge(EventCallback callback, void* arg = nullptr) {
         _onEdge = callback;
@@ -82,7 +79,7 @@ namespace Mycila {
       }
 
       // Callback to be called when a zero-crossing is detected
-      // Callback should be marked with ARDUINO_ISR_ATTR and do minimal work.
+      // Callback should be in IRAM (IRAM_ATTR) and do minimal work.
       // **MUST BE CALLED BEFORE begin()**
       void onZeroCross(Callback callback, void* arg = nullptr) {
         _onZeroCross = callback;
@@ -144,15 +141,15 @@ namespace Mycila {
 
     private:
       // ISR
-      static void _offlineISR(void* arg);
-      static void _zcISR(void* arg);
+      static bool _onlineTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg);
+      static bool _zcTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg);
       static void _edgeISR(void* arg);
 
       gpio_num_t _pinZC = GPIO_NUM_NC;
 
       // timers
-      hw_timer_t* _onlineTimer = nullptr;
-      hw_timer_t* _zcTimer = nullptr;
+      gptimer_handle_t _onlineTimer = NULL;
+      gptimer_handle_t _zcTimer = NULL;
 
       // recording
       uint32_t _widths[MYCILA_PULSE_SAMPLES];

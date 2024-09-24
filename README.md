@@ -53,7 +53,7 @@ More hardware are supported, as long as they fall into one of these categories a
 ```cpp
 Mycila::PulseAnalyzer pulseAnalyzer;
 
-static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
+static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING || e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     digitalWrite(PIN_OUTPUT, HIGH);
     delayMicroseconds(OUTPUT_WIDTH_US);
@@ -61,7 +61,7 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   }
 }
 
-static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
+static void IRAM_ATTR onZeroCross(void* arg) {
   digitalWrite(PIN_OUTPUT, HIGH);
   delayMicroseconds(OUTPUT_WIDTH_US);
   digitalWrite(PIN_OUTPUT, LOW);
@@ -90,19 +90,16 @@ Output:
 
 ## IRAM Safety
 
-If your app is NOT doing a lot of flash operation, you could run with:
+If your app is doing some flash operation, you could run with:
 
 ```
--D CONFIG_ARDUINO_ISR_IRAM=1
 -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
 -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
 -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
 -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
 ```
 
-This will improve interrupt reliability even when doing flash operations.
-
-Please not that the code may crash with: `Cache disabled but cached memory region accessed` if the ZCD is running while any r/w flash operations are in progress.
+This will improve interrupt reliability (they will continue working even during flash operation).
 
 ## Oscilloscope Views
 

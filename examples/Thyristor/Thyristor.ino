@@ -22,7 +22,7 @@ hw_timer_t* thyristorTimer;
 volatile uint32_t firingDelay = UINT32_MAX;
 volatile uint32_t semiPeriod = 0;
 
-static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
+static void IRAM_ATTR onZeroCross(void* arg) {
   // reset thyristor timer to start counting from this ZC event
   timerRestart(thyristorTimer);
 
@@ -37,7 +37,7 @@ static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
     timerAlarm(thyristorTimer, firingDelay, false, 0);
 }
 
-static void ARDUINO_ISR_ATTR onThyristorTimer() {
+static void IRAM_ATTR onThyristorTimer() {
   gpio_set_level(PIN_THYRISTOR, HIGH);
 }
 

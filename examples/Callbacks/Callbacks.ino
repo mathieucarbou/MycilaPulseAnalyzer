@@ -1,15 +1,10 @@
-// Run with -D MYCILA_JSON_SUPPORT
+// Run with:
 //
-// If not running any flash operation, you could run with:
-//
-// -D CONFIG_ARDUINO_ISR_IRAM=1
+// -D MYCILA_JSON_SUPPORT
 // -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
 // -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
 // -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
 // -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
-//
-// Otherwise, no. See:
-// https://github.com/espressif/arduino-esp32/pull/4684
 //
 // To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=100
 //
@@ -25,46 +20,55 @@
 #else
   #define PIN_OUTPUT gpio_num_t::GPIO_NUM_26
 #endif
-#define OUTPUT_WIDTH_US 1
 
-Mycila::PulseAnalyzer pulseAnalyzer;
+static void IRAM_ATTR wait1us() {
+  uint64_t m = (uint64_t)esp_timer_get_time();
+  uint64_t e = m + 1;
+  if (m > e)
+    while ((uint64_t)esp_timer_get_time() > e)
+      NOP();
+  while ((uint64_t)esp_timer_get_time() < e)
+    NOP();
+}
 
 // outputs a 1 us pulse when an edge is detected
 static volatile uint32_t edgeCount = 0;
-static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
+static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
     edgeCount = edgeCount + 1;
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
-    delayMicroseconds(OUTPUT_WIDTH_US);
+    wait1us();
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     edgeCount = edgeCount + 1;
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
-    delayMicroseconds(OUTPUT_WIDTH_US);
+    wait1us();
     ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
 }
 
 // outputs a 1 us pulse when the ZC event is sent
 static volatile uint32_t zeroCrossCount = 0;
-static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
+static void IRAM_ATTR onZeroCross(void* arg) {
   zeroCrossCount = zeroCrossCount + 1;
   ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
-  delayMicroseconds(OUTPUT_WIDTH_US);
+  wait1us();
   ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
 }
 
-static void flash_operation(void* arg) {
+static void flash_operations(void* arg) {
   while (true) {
     Preferences preferences;
-#if CONFIG_ARDUINO_ISR_IRAM != 1
+#if 1 // test with flash / nvm operations
     preferences.begin("crashme", false);
     preferences.putULong64("crashme", 0);
 #endif
     delay(5);
   }
 }
+
+Mycila::PulseAnalyzer pulseAnalyzer;
 
 void setup() {
   Serial.begin(115200);
@@ -78,14 +82,13 @@ void setup() {
   pulseAnalyzer.begin(35);
 
   // Simulate some flash operations at the same time.
-  // If the code is put in IRAM with -D CONFIG_ARDUINO_ISR_IRAM=1, it will crash
-  xTaskCreate(flash_operation, "flash_op", 4096, NULL, uxTaskPriorityGet(NULL), NULL);
+  xTaskCreate(flash_operations, "flash_op", 4096, NULL, uxTaskPriorityGet(NULL), NULL);
 }
 
 uint32_t lastTime = 0;
+uint32_t lastEnd = 0;
 void loop() {
-  if (millis() - lastTime > 1000) {
-    lastTime = millis();
+  if (millis() - lastTime > 500) {
 
     Serial.printf("%" PRIu32 " F=%" PRIu32 " Hz P=%" PRIu32 " us ", edgeCount / 2 - zeroCrossCount, pulseAnalyzer.getNominalGridFrequency(), pulseAnalyzer.getNominalGridPeriod());
 
@@ -96,5 +99,17 @@ void loop() {
 #endif
 
     Serial.println();
+    lastTime = millis();
+  }
+
+  if (millis() - lastEnd > 15000) {
+    Serial.println("end()");
+    pulseAnalyzer.end();
+    delay(3000);
+    Serial.println("begin()");
+    pulseAnalyzer.begin(35);
+
+    lastEnd = millis();
+    lastTime = millis();
   }
 }

@@ -10,7 +10,8 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 - [Supported ZCD Circuits](#supported-zcd-circuits)
 - [Usage](#usage)
 - [IRAM Safety](#iram-safety)
-- [Oscilloscope](#oscilloscope)
+- [Oscilloscope Views](#oscilloscope-views)
+- [Use-Case: Thyristor TRIAC Control](#use-case-thyristor-triac-control)
 - [Readings](#readings)
 
 ## Features
@@ -52,7 +53,7 @@ More hardware are supported, as long as they fall into one of these categories a
 ```cpp
 Mycila::PulseAnalyzer pulseAnalyzer;
 
-static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
+static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING || e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     digitalWrite(PIN_OUTPUT, HIGH);
     delayMicroseconds(OUTPUT_WIDTH_US);
@@ -60,7 +61,7 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   }
 }
 
-static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
+static void IRAM_ATTR onZeroCross(void* arg) {
   digitalWrite(PIN_OUTPUT, HIGH);
   delayMicroseconds(OUTPUT_WIDTH_US);
   digitalWrite(PIN_OUTPUT, LOW);
@@ -89,21 +90,18 @@ Output:
 
 ## IRAM Safety
 
-If your app is NOT doing a lot of flash operation, you could run with:
+If your app is doing some flash operation, you could run with:
 
 ```
--D CONFIG_ARDUINO_ISR_IRAM=1
 -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
 -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
 -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
 -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
 ```
 
-This will improve interrupt reliability even when doing flash operations.
+This will improve interrupt reliability (they will continue working even during flash operation).
 
-Please not that the code may crash with: `Cache disabled but cached memory region accessed` if the ZCD is running while any r/w flash operations are in progress.
-
-## Oscilloscope
+## Oscilloscope Views
 
 Here are below some oscilloscope views of 2 ZCD behaviors with a pulse sent from an ESP32 pin to display the received events.
 
@@ -131,6 +129,17 @@ Here are some views of the ZC pulse, when adding a 1 us pulse on each event: ris
 Here is the same view, but after applying a shift of about 100 us to the ZC event:
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)
+
+## Use-Case: Thyristor TRIAC Control
+
+You can look at the example in the project how to use this library to control a Thyristor / TRIAC with a zero-cross detection circuit.
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)
+
+- In yellow: the ZC pulse
+- In blue: the output pin pulse of 1 us
+- In red: main AC voltage
+- In pink: current going to the load
 
 ## Readings
 
