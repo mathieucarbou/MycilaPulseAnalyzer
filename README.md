@@ -10,7 +10,8 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 - [Supported ZCD Circuits](#supported-zcd-circuits)
 - [Usage](#usage)
 - [IRAM Safety](#iram-safety)
-- [Oscilloscope](#oscilloscope)
+- [Oscilloscope Views](#oscilloscope-views)
+- [Use-Case: Thyristor TRIAC Control](#use-case-thyristor-triac-control)
 - [Readings](#readings)
 
 ## Features
@@ -103,7 +104,7 @@ This will improve interrupt reliability even when doing flash operations.
 
 Please not that the code may crash with: `Cache disabled but cached memory region accessed` if the ZCD is running while any r/w flash operations are in progress.
 
-## Oscilloscope
+## Oscilloscope Views
 
 Here are below some oscilloscope views of 2 ZCD behaviors with a pulse sent from an ESP32 pin to display the received events.
 
@@ -131,6 +132,17 @@ Here are some views of the ZC pulse, when adding a 1 us pulse on each event: ris
 Here is the same view, but after applying a shift of about 100 us to the ZC event:
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)
+
+## Use-Case: Thyristor TRIAC Control
+
+You can look at the example in the project how to use this library to control a Thyristor / TRIAC with a zero-cross detection circuit.
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)
+
+- In yellow: the ZC pulse
+- In blue: the output pin pulse of 1 us
+- In red: main AC voltage
+- In pink: current going to the load
 
 ## Readings
 
