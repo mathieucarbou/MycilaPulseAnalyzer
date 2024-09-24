@@ -11,10 +11,10 @@
 #include <driver/gptimer_types.h>
 #include <hal/gpio_types.h>
 
-#define MYCILA_PULSE_VERSION          "2.3.1"
+#define MYCILA_PULSE_VERSION          "2.3.2"
 #define MYCILA_PULSE_VERSION_MAJOR    2
 #define MYCILA_PULSE_VERSION_MINOR    3
-#define MYCILA_PULSE_VERSION_REVISION 1
+#define MYCILA_PULSE_VERSION_REVISION 2
 
 #ifndef MYCILA_PULSE_SAMPLES
   // sample count for analysis
