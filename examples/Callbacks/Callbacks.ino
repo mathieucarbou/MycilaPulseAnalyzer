@@ -34,15 +34,15 @@ static volatile uint32_t edgeCount = 0;
 static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
     edgeCount = edgeCount + 1;
-    gpio_set_level(PIN_OUTPUT, HIGH);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
     delayMicroseconds(OUTPUT_WIDTH_US);
-    gpio_set_level(PIN_OUTPUT, LOW);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     edgeCount = edgeCount + 1;
-    gpio_set_level(PIN_OUTPUT, HIGH);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
     delayMicroseconds(OUTPUT_WIDTH_US);
-    gpio_set_level(PIN_OUTPUT, LOW);
+    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
   }
 }
 
@@ -50,9 +50,9 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
 static volatile uint32_t zeroCrossCount = 0;
 static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   zeroCrossCount = zeroCrossCount + 1;
-  gpio_set_level(PIN_OUTPUT, HIGH);
+  ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
   delayMicroseconds(OUTPUT_WIDTH_US);
-  gpio_set_level(PIN_OUTPUT, LOW);
+  ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
 }
 
 static void flash_operation(void* arg) {
