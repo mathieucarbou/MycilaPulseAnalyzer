@@ -5,6 +5,7 @@
 #include "MycilaPulseAnalyzer.h"
 
 #include <driver/gptimer.h>
+#include <esp32-hal-gpio.h>
 #include <esp32-hal-log.h>
 
 #ifdef MYCILA_PULSE_DEBUG

@@ -10,6 +10,7 @@
 
 #include <driver/gptimer_types.h>
 #include <hal/gpio_types.h>
+#include <stddef.h>
 
 #define MYCILA_PULSE_VERSION          "2.3.2"
 #define MYCILA_PULSE_VERSION_MAJOR    2
@@ -148,8 +149,8 @@ namespace Mycila {
       gpio_num_t _pinZC = GPIO_NUM_NC;
 
       // timers
-      gptimer_handle_t _onlineTimer = NULL;
-      gptimer_handle_t _zcTimer = NULL;
+      gptimer_handle_t _onlineTimer = nullptr;
+      gptimer_handle_t _zcTimer = nullptr;
 
       // recording
       uint32_t _widths[MYCILA_PULSE_SAMPLES];
