@@ -21,7 +21,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 - Filter spurious Zero-Cross events (noise due to voltage detection)
 - Online / Offline detection
 - Uses only 2 timers
-- IRAM safe
+- **IRAM safe and supports concurrent flash operations!**
 - Callbacks for:
   - Zero-Cross,
   - Rising Signal
@@ -103,6 +103,8 @@ You can run the app with:
 This will improve interrupt reliability (they will continue working even during flash operation).
 
 MycilaPulse makes use of inline function of HAL layer and `ARDUINO_ISR_ATTR` to ensure that the interrupt handlers are in IRAM.
+
+You can look at teh examples in the project to see how to use this library with IRAM safety.
 
 ## Oscilloscope Views
 

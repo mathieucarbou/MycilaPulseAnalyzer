@@ -17,7 +17,7 @@
 #include <hal/gpio_ll.h>
 #include <soc/gpio_struct.h>
 
-#include <driver/gptimer.h>
+#include <inlined_gptimer.h>
 
 #include <esp32-hal.h>
 
@@ -44,7 +44,13 @@ volatile uint32_t semiPeriod = 0;
 
 static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   // reset thyristor timer to start counting from this ZC event
-  ESP_ERROR_CHECK(gptimer_set_raw_count(thyristorTimer, 0));
+  ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(thyristorTimer, 0));
+
+  if (!firingDelay) {
+    // 100% duty cycle => leave on
+    gpio_ll_set_level(&GPIO, PIN_THYRISTOR, HIGH);
+    return;
+  }
 
   // make sure thyristor is stoped at ZC point
   gpio_ll_set_level(&GPIO, PIN_THYRISTOR, LOW);
@@ -58,7 +64,7 @@ static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
     alarm_cfg.alarm_count = firingDelay;
     alarm_cfg.reload_count = 0;
     alarm_cfg.flags.auto_reload_on_alarm = false;
-    ESP_ERROR_CHECK(gptimer_set_alarm_action(thyristorTimer, &alarm_cfg));
+    ESP_ERROR_CHECK(inlined_gptimer_set_alarm_action(thyristorTimer, &alarm_cfg));
   }
 }
 
@@ -86,7 +92,7 @@ void setup() {
   timer_callbacks.on_alarm = onThyristorTimer;
   ESP_ERROR_CHECK(gptimer_register_event_callbacks(thyristorTimer, &timer_callbacks, nullptr));
   ESP_ERROR_CHECK(gptimer_enable(thyristorTimer));
-  ESP_ERROR_CHECK(gptimer_start(thyristorTimer));
+  ESP_ERROR_CHECK(inlined_gptimer_start(thyristorTimer));
 
   pulseAnalyzer.onZeroCross(onZeroCross);
   pulseAnalyzer.begin(35);
