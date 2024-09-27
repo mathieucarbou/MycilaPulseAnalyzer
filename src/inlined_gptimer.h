@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 /*
  * Copyright (C) 2023-2024 Mathieu Carbou
+ *
+ * This file is a collections of functions and structures from gptimer_priv.h, gptimer.c and timer_hal.c
+ *
+ * They have been updated to be marked as forced inline, in order to be used from ISR in IRAM.
+ * This is required to be able to use ISR in IRAM, while doing some flash operations.
  */
 #pragma once
 
@@ -17,7 +22,7 @@
 #include <sys/lock.h>
 
 ///////////////////////////////////////////////////////////////////////////
-// FROM gptimer_priv.h, gptimer.c and timer_hal.c
+// FROM
 ///////////////////////////////////////////////////////////////////////////
 
 typedef struct gptimer_group_t {
