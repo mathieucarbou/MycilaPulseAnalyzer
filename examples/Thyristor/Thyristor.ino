@@ -73,6 +73,17 @@ static bool ARDUINO_ISR_ATTR onThyristorTimer(gptimer_handle_t timer, const gpti
   return false;
 }
 
+static void flash_operations(void* arg) {
+  while (true) {
+    Preferences preferences;
+#if 1 // test with flash / nvm operations
+    preferences.begin("crashme", false);
+    preferences.putULong64("crashme", 0);
+#endif
+    delay(5);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   while (!Serial)
@@ -96,6 +107,9 @@ void setup() {
 
   pulseAnalyzer.onZeroCross(onZeroCross);
   pulseAnalyzer.begin(35);
+
+  // Simulate some flash operations at the same time.
+  xTaskCreate(flash_operations, "flash_op", 4096, NULL, uxTaskPriorityGet(NULL), NULL);
 }
 
 uint32_t lastTime = 0;
