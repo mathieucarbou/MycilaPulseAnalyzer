@@ -20,10 +20,6 @@
 // FROM gptimer_priv.h, gptimer.c and timer_hal.c
 ///////////////////////////////////////////////////////////////////////////
 
-#ifndef FORCE_INLINE
-  #define FORCE_INLINE __attribute__((always_inline)) inline
-#endif
-
 typedef struct gptimer_group_t {
     int group_id;
     portMUX_TYPE spinlock; // to protect per-group register level concurrent access
@@ -68,7 +64,7 @@ struct gptimer_t {
     } flags;
 };
 
-FORCE_INLINE esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, unsigned long long* value) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, unsigned long long* value) {
   ESP_RETURN_ON_FALSE_ISR(timer && value, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
 
   portENTER_CRITICAL_SAFE(&timer->spinlock);
@@ -78,7 +74,7 @@ FORCE_INLINE esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, uns
   return ESP_OK;
 }
 
-FORCE_INLINE esp_err_t inlined_gptimer_set_raw_count(gptimer_handle_t timer, unsigned long long value) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_raw_count(gptimer_handle_t timer, unsigned long long value) {
   ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
 
   portENTER_CRITICAL_SAFE(&timer->spinlock);
@@ -98,7 +94,7 @@ FORCE_INLINE esp_err_t inlined_gptimer_set_raw_count(gptimer_handle_t timer, uns
   return ESP_OK;
 }
 
-FORCE_INLINE esp_err_t inlined_gptimer_start(gptimer_handle_t timer) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_start(gptimer_handle_t timer) {
   ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
 
   gptimer_fsm_t expected_fsm = GPTIMER_FSM_ENABLE;
@@ -117,7 +113,7 @@ FORCE_INLINE esp_err_t inlined_gptimer_start(gptimer_handle_t timer) {
   return ESP_OK;
 }
 
-FORCE_INLINE esp_err_t inlined_gptimer_stop(gptimer_handle_t timer) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_stop(gptimer_handle_t timer) {
   ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
 
   gptimer_fsm_t expected_fsm = GPTIMER_FSM_RUN;
@@ -134,7 +130,7 @@ FORCE_INLINE esp_err_t inlined_gptimer_stop(gptimer_handle_t timer) {
   return ESP_OK;
 }
 
-FORCE_INLINE esp_err_t inlined_gptimer_set_alarm_action(gptimer_handle_t timer, const gptimer_alarm_config_t* config) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_alarm_action(gptimer_handle_t timer, const gptimer_alarm_config_t* config) {
   ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
 
   if (config) {
