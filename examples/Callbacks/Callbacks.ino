@@ -11,6 +11,9 @@
 #include <MycilaPulseAnalyzer.h>
 
 #include <esp32-hal-gpio.h>
+#include <hal/gpio_ll.h>
+#include <soc/gpio_struct.h>
+
 #include <esp32-hal.h>
 
 #include <Preferences.h>
@@ -36,15 +39,15 @@ static volatile uint32_t edgeCount = 0;
 static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
     edgeCount = edgeCount + 1;
-    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
+    gpio_ll_set_level(&GPIO, PIN_OUTPUT, HIGH);
     wait1us();
-    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
+    gpio_ll_set_level(&GPIO, PIN_OUTPUT, LOW);
   }
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     edgeCount = edgeCount + 1;
-    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
+    gpio_ll_set_level(&GPIO, PIN_OUTPUT, HIGH);
     wait1us();
-    ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
+    gpio_ll_set_level(&GPIO, PIN_OUTPUT, LOW);
   }
 }
 
@@ -52,9 +55,9 @@ static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
 static volatile uint32_t zeroCrossCount = 0;
 static void IRAM_ATTR onZeroCross(void* arg) {
   zeroCrossCount = zeroCrossCount + 1;
-  ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, HIGH));
+  gpio_ll_set_level(&GPIO, PIN_OUTPUT, HIGH);
   wait1us();
-  ESP_ERROR_CHECK(gpio_set_level(PIN_OUTPUT, LOW));
+  gpio_ll_set_level(&GPIO, PIN_OUTPUT, LOW);
 }
 
 static void flash_operations(void* arg) {

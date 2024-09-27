@@ -4,8 +4,19 @@
  */
 #include "MycilaPulseAnalyzer.h"
 
-#include <driver/gptimer.h>
+// memory
+#include <esp_attr.h>
+
+// gpio
+#include <driver/gpio.h>
 #include <esp32-hal-gpio.h>
+#include <hal/gpio_ll.h>
+#include <soc/gpio_struct.h>
+
+// timers
+#include <driver/gptimer.h>
+
+// logging
 #include <esp32-hal-log.h>
 
 #ifdef MYCILA_PULSE_DEBUG
@@ -54,6 +65,7 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   if (GPIO_IS_VALID_GPIO(pinZC)) {
     _pinZC = (gpio_num_t)pinZC;
     pinMode(_pinZC, INPUT);
+
   } else {
     LOGE(TAG, "Invalid ZC input pin: %" PRId8, pinZC);
     _pinZC = GPIO_NUM_NC;
@@ -206,7 +218,7 @@ void IRAM_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   }
 
   // Edge detection
-  const Event event = gpio_get_level(instance->_pinZC) == HIGH ? Event::SIGNAL_RISING : Event::SIGNAL_FALLING;
+  const Event event = gpio_ll_get_level(&GPIO, instance->_pinZC) ? Event::SIGNAL_RISING : Event::SIGNAL_FALLING;
 
   // noise in edge detection ? => reset count, just in case
   // But this is still possible that the noise is caused by the wrong voltage detection above
@@ -224,21 +236,20 @@ void IRAM_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   if (period) {
     switch (instance->_type) {
       case Type::TYPE_UNKNOWN:
+        gptimer_alarm_config_t alarm_cfg;
+        alarm_cfg.alarm_count = period;
+        alarm_cfg.reload_count = 0;
+        alarm_cfg.flags.auto_reload_on_alarm = true;
+        ESP_ERROR_CHECK(gptimer_set_alarm_action(zcTimer, &alarm_cfg));
+        ESP_ERROR_CHECK(gptimer_start(zcTimer));
+
         // try to detect the BM1Z102FJ pulses (which match the semi-period)
         if (instance->_widthMin && instance->_widthMax && period >= instance->_widthMin && period <= instance->_widthMax) {
           instance->_type = Type::TYPE_BM1Z102FJ;
-          _zcTimerISR(zcTimer, nullptr, instance);
+          ESP_ERROR_CHECK(gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : period) - MYCILA_PULSE_ZC_SHIFT_US));
 
         } else {
           instance->_type = Type::TYPE_PULSE;
-          ESP_ERROR_CHECK(gptimer_start(zcTimer));
-
-          gptimer_alarm_config_t alarm_cfg;
-          alarm_cfg.alarm_count = period;
-          alarm_cfg.reload_count = 0;
-          alarm_cfg.flags.auto_reload_on_alarm = true;
-          ESP_ERROR_CHECK(gptimer_set_alarm_action(zcTimer, &alarm_cfg));
-
           if (event == Event::SIGNAL_FALLING) {
             int position = diff / 2;
             if (position >= MYCILA_PULSE_ZC_SHIFT_US)
@@ -249,7 +260,7 @@ void IRAM_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
         break;
 
       case Type::TYPE_BM1Z102FJ:
-        _zcTimerISR(zcTimer, nullptr, instance);
+        ESP_ERROR_CHECK(gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : period) - MYCILA_PULSE_ZC_SHIFT_US));
         break;
 
       case Type::TYPE_PULSE:

@@ -90,9 +90,10 @@ Output:
 
 ## IRAM Safety
 
-If your app is doing some flash operation, you could run with:
+You can run the app with:
 
 ```
+-D CONFIG_ARDUINO_ISR_IRAM=1
 -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
 -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
 -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
@@ -100,6 +101,8 @@ If your app is doing some flash operation, you could run with:
 ```
 
 This will improve interrupt reliability (they will continue working even during flash operation).
+
+MycilaPulse makes use of inline function of HAL layer and `IRAM_ATTR` to ensure that the interrupt handlers are in IRAM.
 
 ## Oscilloscope Views
 

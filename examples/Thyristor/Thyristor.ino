@@ -1,7 +1,14 @@
 #include <MycilaPulseAnalyzer.h>
 
 #include <esp32-hal-gpio.h>
+#include <hal/gpio_ll.h>
+#include <soc/gpio_struct.h>
+
+#include <driver/gptimer.h>
+
 #include <esp32-hal.h>
+
+#include <esp32-hal-log.h>
 
 #include <Preferences.h>
 
@@ -17,28 +24,34 @@
 #define PHASE_DELAY_MIN_US 100
 
 Mycila::PulseAnalyzer pulseAnalyzer;
-hw_timer_t* thyristorTimer;
+gptimer_handle_t thyristorTimer;
 
 volatile uint32_t firingDelay = UINT32_MAX;
 volatile uint32_t semiPeriod = 0;
 
 static void IRAM_ATTR onZeroCross(void* arg) {
   // reset thyristor timer to start counting from this ZC event
-  timerRestart(thyristorTimer);
+  ESP_ERROR_CHECK(gptimer_set_raw_count(thyristorTimer, 0));
 
   // make sure thyristor is stoped at ZC point
-  gpio_set_level(PIN_THYRISTOR, LOW);
+  gpio_ll_set_level(&GPIO, PIN_THYRISTOR, LOW);
 
   // 100% duty cycle
   if (firingDelay < PHASE_DELAY_MIN_US)
     firingDelay = PHASE_DELAY_MIN_US;
 
-  if (firingDelay < semiPeriod)
-    timerAlarm(thyristorTimer, firingDelay, false, 0);
+  if (firingDelay < semiPeriod) {
+    gptimer_alarm_config_t alarm_cfg;
+    alarm_cfg.alarm_count = firingDelay;
+    alarm_cfg.reload_count = 0;
+    alarm_cfg.flags.auto_reload_on_alarm = false;
+    ESP_ERROR_CHECK(gptimer_set_alarm_action(thyristorTimer, &alarm_cfg));
+  }
 }
 
-static void IRAM_ATTR onThyristorTimer() {
-  gpio_set_level(PIN_THYRISTOR, HIGH);
+static bool IRAM_ATTR onThyristorTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
+  gpio_ll_set_level(&GPIO, PIN_THYRISTOR, HIGH);
+  return false;
 }
 
 void setup() {
@@ -48,9 +61,19 @@ void setup() {
 
   pinMode(PIN_THYRISTOR, OUTPUT);
 
-  thyristorTimer = timerBegin(1000000);
-  timerAttachInterrupt(thyristorTimer, onThyristorTimer);
-  timerStop(thyristorTimer);
+  gptimer_config_t timer_config;
+  timer_config.clk_src = GPTIMER_CLK_SRC_DEFAULT;
+  timer_config.direction = GPTIMER_COUNT_UP;
+  timer_config.resolution_hz = 1000000; // 1MHz resolution
+  timer_config.flags.intr_shared = true;
+  timer_config.intr_priority = 0;
+
+  ESP_ERROR_CHECK(gptimer_new_timer(&timer_config, &thyristorTimer));
+  gptimer_event_callbacks_t timer_callbacks;
+  timer_callbacks.on_alarm = onThyristorTimer;
+  ESP_ERROR_CHECK(gptimer_register_event_callbacks(thyristorTimer, &timer_callbacks, nullptr));
+  ESP_ERROR_CHECK(gptimer_enable(thyristorTimer));
+  ESP_ERROR_CHECK(gptimer_start(thyristorTimer));
 
   pulseAnalyzer.onZeroCross(onZeroCross);
   pulseAnalyzer.begin(35);
@@ -60,18 +83,16 @@ uint32_t lastTime = 0;
 size_t i = 0;
 float dutyCycles[5] = {0, 0.25, 0.50, 0.75, 1};
 void loop() {
-  if (millis() - lastTime > 1000) {
+  if (millis() - lastTime > 2000) {
     const bool online = pulseAnalyzer.isOnline();
 
     if (!semiPeriod && online) {
       Serial.println("Online");
       semiPeriod = pulseAnalyzer.getNominalGridPeriod() / 2;
       firingDelay = UINT32_MAX;
-      timerStart(thyristorTimer);
 
     } else if (semiPeriod && !online) {
       Serial.println("Offline");
-      timerStop(thyristorTimer);
       semiPeriod = 0;
       firingDelay = UINT32_MAX;
     }
@@ -82,7 +103,7 @@ void loop() {
 
       i = (i + 1) % 5;
     } else {
-      gpio_set_level(PIN_THYRISTOR, LOW);
+      gpio_ll_set_level(&GPIO, PIN_THYRISTOR, LOW);
     }
 
     lastTime = millis();
