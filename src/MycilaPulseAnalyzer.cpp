@@ -145,14 +145,14 @@ void Mycila::PulseAnalyzer::end() {
   _widthMax = 0;
 }
 
-bool IRAM_ATTR Mycila::PulseAnalyzer::_zcTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
+bool ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_zcTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
   if (instance->_onZeroCross)
     instance->_onZeroCross(instance->_onZeroCrossArg);
   return false;
 }
 
-bool IRAM_ATTR Mycila::PulseAnalyzer::_onlineTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
+bool ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_onlineTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
 
   gptimer_stop(instance->_zcTimer); // might be already stopped
@@ -179,7 +179,7 @@ bool IRAM_ATTR Mycila::PulseAnalyzer::_onlineTimerISR(gptimer_handle_t timer, co
   return false;
 }
 
-void IRAM_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
+void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
   gptimer_handle_t zcTimer = instance->_zcTimer;
   gptimer_handle_t onlineTimer = instance->_onlineTimer;

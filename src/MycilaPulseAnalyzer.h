@@ -74,7 +74,7 @@ namespace Mycila {
       typedef void (*Callback)(void* arg);
 
       // Callback to be called when an edge is detected
-      // Callback should be in IRAM (IRAM_ATTR) and do minimal work.
+      // Callback should be in IRAM (ARDUINO_ISR_ATTR) and do minimal work.
       // **MUST BE CALLED BEFORE begin()**
       void onEdge(EventCallback callback, void* arg = nullptr) {
         _onEdge = callback;
@@ -82,7 +82,7 @@ namespace Mycila {
       }
 
       // Callback to be called when a zero-crossing is detected
-      // Callback should be in IRAM (IRAM_ATTR) and do minimal work.
+      // Callback should be in IRAM (ARDUINO_ISR_ATTR) and do minimal work.
       // **MUST BE CALLED BEFORE begin()**
       void onZeroCross(Callback callback, void* arg = nullptr) {
         _onZeroCross = callback;

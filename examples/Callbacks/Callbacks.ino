@@ -1,13 +1,16 @@
-// Run with:
-//
-// -D MYCILA_JSON_SUPPORT
-// -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
-// -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
-// -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
-// -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
-//
-// To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=100
-//
+// SPDX-License-Identifier: MIT
+/*
+ * Copyright (C) 2023-2024 Mathieu Carbou
+ *
+ * Run with:
+ *  -D CONFIG_ARDUINO_ISR_IRAM=1
+ *  -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
+ *  -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
+ *  -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
+ *  -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
+ *
+ * To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=x
+ */
 #include <MycilaPulseAnalyzer.h>
 
 #include <esp32-hal-gpio.h>
@@ -24,7 +27,7 @@
   #define PIN_OUTPUT gpio_num_t::GPIO_NUM_26
 #endif
 
-static void IRAM_ATTR wait1us() {
+static void ARDUINO_ISR_ATTR wait1us() {
   uint64_t m = (uint64_t)esp_timer_get_time();
   uint64_t e = m + 1;
   if (m > e)
@@ -36,7 +39,7 @@ static void IRAM_ATTR wait1us() {
 
 // outputs a 1 us pulse when an edge is detected
 static volatile uint32_t edgeCount = 0;
-static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
+static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING) {
     edgeCount = edgeCount + 1;
     gpio_ll_set_level(&GPIO, PIN_OUTPUT, HIGH);
@@ -53,7 +56,7 @@ static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
 
 // outputs a 1 us pulse when the ZC event is sent
 static volatile uint32_t zeroCrossCount = 0;
-static void IRAM_ATTR onZeroCross(void* arg) {
+static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   zeroCrossCount = zeroCrossCount + 1;
   gpio_ll_set_level(&GPIO, PIN_OUTPUT, HIGH);
   wait1us();

@@ -1,3 +1,16 @@
+// SPDX-License-Identifier: MIT
+/*
+ * Copyright (C) 2023-2024 Mathieu Carbou
+ *
+ * Run with:
+ *  -D CONFIG_ARDUINO_ISR_IRAM=1
+ *  -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
+ *  -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
+ *  -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
+ *  -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
+ *
+ * To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=x
+ */
 #include <MycilaPulseAnalyzer.h>
 
 #include <esp32-hal-gpio.h>
@@ -29,7 +42,7 @@ gptimer_handle_t thyristorTimer;
 volatile uint32_t firingDelay = UINT32_MAX;
 volatile uint32_t semiPeriod = 0;
 
-static void IRAM_ATTR onZeroCross(void* arg) {
+static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   // reset thyristor timer to start counting from this ZC event
   ESP_ERROR_CHECK(gptimer_set_raw_count(thyristorTimer, 0));
 
@@ -49,7 +62,7 @@ static void IRAM_ATTR onZeroCross(void* arg) {
   }
 }
 
-static bool IRAM_ATTR onThyristorTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
+static bool ARDUINO_ISR_ATTR onThyristorTimer(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
   gpio_ll_set_level(&GPIO, PIN_THYRISTOR, HIGH);
   return false;
 }

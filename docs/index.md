@@ -53,7 +53,7 @@ More hardware are supported, as long as they fall into one of these categories a
 ```cpp
 Mycila::PulseAnalyzer pulseAnalyzer;
 
-static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
+static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   if (e == Mycila::PulseAnalyzer::Event::SIGNAL_RISING || e == Mycila::PulseAnalyzer::Event::SIGNAL_FALLING) {
     digitalWrite(PIN_OUTPUT, HIGH);
     delayMicroseconds(OUTPUT_WIDTH_US);
@@ -61,7 +61,7 @@ static void IRAM_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
   }
 }
 
-static void IRAM_ATTR onZeroCross(void* arg) {
+static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
   digitalWrite(PIN_OUTPUT, HIGH);
   delayMicroseconds(OUTPUT_WIDTH_US);
   digitalWrite(PIN_OUTPUT, LOW);
@@ -102,7 +102,7 @@ You can run the app with:
 
 This will improve interrupt reliability (they will continue working even during flash operation).
 
-MycilaPulse makes use of inline function of HAL layer and `IRAM_ATTR` to ensure that the interrupt handlers are in IRAM.
+MycilaPulse makes use of inline function of HAL layer and `ARDUINO_ISR_ATTR` to ensure that the interrupt handlers are in IRAM.
 
 ## Oscilloscope Views
 
