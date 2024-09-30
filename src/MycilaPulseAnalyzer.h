@@ -43,11 +43,16 @@
 #ifndef MYCILA_PULSE_ZC_SHIFT_US
   // Shift to apply when setting the zero-crossing timer.
   // By default the zero-crossing is set at the middle of the pulse.
-  // This value will be added to determine the zero-crossing timer 0 position to know when to trigger the ZC event.
+  // This value will be added to determine when the zero-crossing event wil be fired from the middle of the pulse.
+  //
   // Example: -100 will shift the zero-crossing event -100 us before the middle of the pulse.
-  // This parameter is really important to use in the case of pulses that
-  // are not centered to 0, like Robodyn.
-  // If the ZC signal happens too late after the real zero cross, the triac will be left closed and the load will be set at 100% whatever the firing delay.
+  //
+  // This parameter is really important to use in the case of pulses that are not centered to 0, like Robodyn.
+  // If the Zero-Cross event happens too late after the real 0-voltage is crossed,
+  // triacs could stay on at 100% because they will see the pulse fire command.
+  //
+  // It could also be used for other purposes, like delay the ZC event for 5000 us so that the ZC event is always
+  // triggered at the voltage peak (90 degree angle) of the sine wave.
   #define MYCILA_PULSE_ZC_SHIFT_US -100
 #endif
 
@@ -154,7 +159,7 @@ namespace Mycila {
       gptimer_handle_t _onlineTimer = nullptr;
       gptimer_handle_t _zcTimer = nullptr;
 
-      // recording
+      // Internal ISR variables
       uint32_t _widths[MYCILA_PULSE_SAMPLES];
       size_t _size = 0;
       Event _lastEvent = SIGNAL_NONE;
