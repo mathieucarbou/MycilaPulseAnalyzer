@@ -188,7 +188,6 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   ESP_ERROR_CHECK(inlined_gptimer_get_raw_count(onlineTimer, &raw_count));
 
   const uint32_t diff = static_cast<uint32_t>(raw_count);
-  const uint32_t period = instance->_nominalGridPeriod / 2;
 
   // connected for the first time ?
   if (!diff) {
@@ -232,35 +231,11 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
 
   instance->_lastEvent = event;
 
-  // set alarms for ZC ISR
-  if (period) {
+  // sync alarms for ZC ISR
+  if (instance->_nominalGridPeriod) {
     switch (instance->_type) {
-      case Type::TYPE_UNKNOWN:
-        gptimer_alarm_config_t alarm_cfg;
-        alarm_cfg.alarm_count = period;
-        alarm_cfg.reload_count = 0;
-        alarm_cfg.flags.auto_reload_on_alarm = true;
-        ESP_ERROR_CHECK(inlined_gptimer_set_alarm_action(zcTimer, &alarm_cfg));
-        ESP_ERROR_CHECK(inlined_gptimer_start(zcTimer));
-
-        // try to detect the BM1Z102FJ pulses (which match the semi-period)
-        if (instance->_widthMin && instance->_widthMax && period >= instance->_widthMin && period <= instance->_widthMax) {
-          instance->_type = Type::TYPE_BM1Z102FJ;
-          ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : period) - MYCILA_PULSE_ZC_SHIFT_US));
-
-        } else {
-          instance->_type = Type::TYPE_PULSE;
-          if (event == Event::SIGNAL_FALLING) {
-            int position = diff / 2;
-            if (position >= MYCILA_PULSE_ZC_SHIFT_US)
-              position -= MYCILA_PULSE_ZC_SHIFT_US;
-            ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, position));
-          }
-        }
-        break;
-
       case Type::TYPE_BM1Z102FJ:
-        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : period) - MYCILA_PULSE_ZC_SHIFT_US));
+        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : instance->_nominalGridPeriod / 2) - MYCILA_PULSE_ZC_SHIFT_US));
         break;
 
       case Type::TYPE_PULSE:
@@ -283,57 +258,99 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     instance->_onEdge(event, instance->_onEdgeArg);
 
   // Pulse analysis done ?
-  if (period && instance->_width)
+  if (instance->_nominalGridPeriod && instance->_width)
     return;
 
   instance->_widths[instance->_size] = diff;
   instance->_size = instance->_size + 1;
 
+  // analyze pulse width when we have all samples
   if (instance->_size == MYCILA_PULSE_SAMPLES) {
-    uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
+    // analyze pulse width
+    if (!instance->_width) {
+      uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
 
-    for (size_t i = event == Event::SIGNAL_RISING ? 0 : 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
-      value = instance->_widths[i];
-      sum += value;
-      if (value < min)
-        min = value;
-      if (value > max)
-        max = value;
-    }
+      for (size_t i = event == Event::SIGNAL_RISING ? 0 : 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
+        value = instance->_widths[i];
+        sum += value;
+        if (value < min)
+          min = value;
+        if (value > max)
+          max = value;
+      }
 
-    if (min >= MYCILA_PULSE_MIN_PULSE_WIDTH_US && max <= MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
-      instance->_width = sum * 2 / MYCILA_PULSE_SAMPLES;
-      instance->_widthMin = min;
-      instance->_widthMax = max;
+      value = sum * 2 / MYCILA_PULSE_SAMPLES;
 
-    } else {
+      if (value >= MYCILA_PULSE_MIN_PULSE_WIDTH_US && value <= MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
+        instance->_width = value;
+        instance->_widthMin = min;
+        instance->_widthMax = max;
+
+      } else {
 #ifdef MYCILA_PULSE_DEBUG
-      ets_printf("ERR: width\n");
+        ets_printf("ERR: width\n");
 #endif
+      }
     }
 
     // analyze pulse period
-    value = 0, sum = 0, min = UINT32_MAX, max = 0;
+    if (!instance->_nominalGridPeriod) {
+      uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
 
-    for (size_t i = 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
-      value = instance->_widths[i] + instance->_widths[i - 1];
-      sum += value;
-      if (value < min)
-        min = value;
-      if (value > max)
-        max = value;
-    }
+      for (size_t i = 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
+        value = instance->_widths[i] + instance->_widths[i - 1];
+        sum += value;
+        if (value < min)
+          min = value;
+        if (value > max)
+          max = value;
+      }
 
-    if (min >= MYCILA_PULSE_MIN_SEMI_PERIOD_US && max <= MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
       value = sum * 2 / MYCILA_PULSE_SAMPLES;
-      instance->_period = value;
-      instance->_periodMin = min;
-      instance->_periodMax = max;
-      instance->_nominalGridPeriod = value ? 1000000 / ((10000000 / value + 5) / 20) : 0;
-    } else {
+
+      // BM1Z102FJ
+      bool maybeBM1Z102FJ = false;
+      if (value > MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
+        maybeBM1Z102FJ = true;
+        value /= 2;
+        min /= 2;
+        max /= 2;
+      }
+
+      if (value >= MYCILA_PULSE_MIN_SEMI_PERIOD_US && value <= MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
+        instance->_period = value;
+        instance->_periodMin = min;
+        instance->_periodMax = max;
+        instance->_nominalGridPeriod = value ? 1000000 / ((10000000 / value + 5) / 20) : 0;
+
+        if (instance->_type == Type::TYPE_UNKNOWN) {
+          gptimer_alarm_config_t alarm_cfg;
+          alarm_cfg.alarm_count = instance->_nominalGridPeriod / 2;
+          alarm_cfg.reload_count = 0;
+          alarm_cfg.flags.auto_reload_on_alarm = true;
+          ESP_ERROR_CHECK(inlined_gptimer_set_alarm_action(zcTimer, &alarm_cfg));
+          ESP_ERROR_CHECK(inlined_gptimer_start(zcTimer));
+
+          if (maybeBM1Z102FJ) {
+            instance->_type = Type::TYPE_BM1Z102FJ;
+            ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : alarm_cfg.alarm_count) - MYCILA_PULSE_ZC_SHIFT_US));
+
+          } else {
+            instance->_type = Type::TYPE_PULSE;
+            if (event == Event::SIGNAL_FALLING) {
+              int position = diff / 2;
+              if (position >= MYCILA_PULSE_ZC_SHIFT_US)
+                position -= MYCILA_PULSE_ZC_SHIFT_US;
+              ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, position));
+            }
+          }
+        }
+
+      } else {
 #ifdef MYCILA_PULSE_DEBUG
-      ets_printf("ERR: period\n");
+        ets_printf("ERR: period\n");
 #endif
+      }
     }
 
     // reset index for a next round of capture

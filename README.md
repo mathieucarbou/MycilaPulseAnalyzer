@@ -10,8 +10,13 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 - [Supported ZCD Circuits](#supported-zcd-circuits)
 - [Usage](#usage)
 - [IRAM Safety](#iram-safety)
+- [Zero-Cross event shift](#zero-cross-event-shift)
 - [Oscilloscope Views](#oscilloscope-views)
+  - [Robodyn](#robodyn)
+  - [Zero-Cross Detector from Daniel S](#zero-cross-detector-from-daniel-s)
+  - [BM1Z102FJ chip based ZCD](#bm1z102fj-chip-based-zcd)
 - [Use-Case: Thyristor TRIAC Control](#use-case-thyristor-triac-control)
+- [Use-Case: Know when the AC voltage is positive or negative](#use-case-know-when-the-ac-voltage-is-positive-or-negative)
 - [Readings](#readings)
 
 ## Features
@@ -106,6 +111,12 @@ MycilaPulse makes use of inline function of HAL layer and `ARDUINO_ISR_ATTR` to 
 
 You can look at teh examples in the project to see how to use this library with IRAM safety.
 
+## Zero-Cross event shift
+
+Compile flag `-D MYCILA_PULSE_ZC_SHIFT_US` is used to control the shift of the Zero-Cross event.
+
+By default, the value is set to -100 us, which means that the Zero-Cross event is shifted by - 100 us from the middle of the pulse (or start in the case of the BM1Z102FJ chip).
+
 ## Oscilloscope Views
 
 Here are below some oscilloscope views of 2 ZCD behaviors with a pulse sent from an ESP32 pin to display the received events.
@@ -115,7 +126,7 @@ Here are below some oscilloscope views of 2 ZCD behaviors with a pulse sent from
 - In red: main AC voltage
 - Measured in pink: distance between the vertical lines
 
-**Robodyn**
+### Robodyn
 
 Here are some views of the Robodyn ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event.
 
@@ -125,7 +136,7 @@ Here is the same view, but after applying a shift of about 100 us to the ZC even
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc_delay.jpeg)
 
-**Zero-Cross Detector from Daniel S.**
+### Zero-Cross Detector from Daniel S
 
 Here are some views of the ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event.
 
@@ -134,6 +145,28 @@ Here are some views of the ZC pulse, when adding a 1 us pulse on each event: ris
 Here is the same view, but after applying a shift of about 100 us to the ZC event:
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)
+
+### BM1Z102FJ chip based ZCD
+
+Oscilloscope view of the BM1Z102FJ chip based ZCD where each pulse match the positive component of the AC voltage.
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ.jpeg)
+
+Oscilloscope view with edge detection activated
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)
+
+Oscilloscope view with default Zero-Cross event (shifted by -100 us)
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)
+
+Oscilloscope view with default Zero-Cross event (shifted by -200 us)
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift.jpeg)
+
+Oscilloscope view with default Zero-Cross event (shifted by 200 us)
+
+[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)
 
 ## Use-Case: Thyristor TRIAC Control
 
@@ -145,6 +178,12 @@ You can look at the example in the project how to use this library to control a 
 - In blue: the output pin pulse of 1 us
 - In red: main AC voltage
 - In pink: current going to the load
+
+## Use-Case: Know when the AC voltage is positive or negative
+
+The BM1Z102FJ has a positive pulse when the AC voltage is positive, and a negative pulse when the AC voltage is negative.
+
+Thanks to MycilaPulseAnalyzer, you can know when the AC voltage is positive or negative by using the `onEdge` callback and check if it is a rising or falling edge.
 
 ## Readings
 

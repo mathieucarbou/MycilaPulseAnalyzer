@@ -108,7 +108,8 @@ void loop() {
     lastTime = millis();
   }
 
-  if (millis() - lastEnd > 15000) {
+  if (millis() - lastEnd > 10000) {
+    // ESP.restart();
     Serial.println("end()");
     pulseAnalyzer.end();
     delay(3000);
