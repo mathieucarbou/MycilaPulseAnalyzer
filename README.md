@@ -128,7 +128,7 @@ Here are below some oscilloscope views of 2 ZCD behaviors with a pulse sent from
 
 ### Robodyn
 
-Here are some views of the Robodyn ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event.
+Here are some views of the Robodyn ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event, with `-D MYCILA_PULSE_ZC_SHIFT_US=0`.
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc.jpeg)
 
@@ -138,7 +138,7 @@ Here is the same view, but after applying a shift of about 100 us to the ZC even
 
 ### Zero-Cross Detector from Daniel S
 
-Here are some views of the ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event.
+Here are some views of the ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event with `-D MYCILA_PULSE_ZC_SHIFT_US=0`.
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc.jpeg)
 
@@ -156,7 +156,7 @@ Oscilloscope view with edge detection activated
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)
 
-Oscilloscope view with default Zero-Cross event (shifted by -100 us)
+Oscilloscope view with default Zero-Cross event with `-D MYCILA_PULSE_ZC_SHIFT_US=-100` (shifted by -100 us), which is teh default.
 
 [![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)
 
