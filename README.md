@@ -130,49 +130,49 @@ Here are below some oscilloscope views of 2 ZCD behaviors with a pulse sent from
 
 Here are some views of the Robodyn ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event, with `-D MYCILA_PULSE_ZC_SHIFT_US=0`.
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc.jpeg)
 
 Here is the same view, but after applying a shift of about 100 us to the ZC event:
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc_delay.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc_delay.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/robodyn_zc_delay.jpeg)
 
 ### Zero-Cross Detector from Daniel S
 
 Here are some views of the ZC pulse, when adding a 1 us pulse on each event: rising and falling, and a 1us pulse on the ZC event with `-D MYCILA_PULSE_ZC_SHIFT_US=0`.
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc.jpeg)
 
 Here is the same view, but after applying a shift of about 100 us to the ZC event:
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/zcd_zc_delay.jpeg)
 
 ### BM1Z102FJ chip based ZCD
 
 Oscilloscope view of the BM1Z102FJ chip based ZCD where each pulse match the positive component of the AC voltage.
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ.jpeg)
 
 Oscilloscope view with edge detection activated
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_edge.jpeg)
 
 Oscilloscope view with default Zero-Cross event with `-D MYCILA_PULSE_ZC_SHIFT_US=-100` (shifted by -100 us), which is teh default.
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_event.jpeg)
 
 Oscilloscope view with default Zero-Cross event (shifted by -200 us)
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift.jpeg)
 
 Oscilloscope view with default Zero-Cross event (shifted by 200 us)
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)
 
 ## Use-Case: Thyristor TRIAC Control
 
 You can look at the example in the project how to use this library to control a Thyristor / TRIAC with a zero-cross detection circuit.
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/thyristor.gif)
 
 - In yellow: the ZC pulse
 - In blue: the output pin pulse of 1 us
@@ -191,4 +191,4 @@ Here is a blog post explaining how to use this library, with some oscilloscope s
 
 [https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection](https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection).
 
-[![](https://oss.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_zc_isr_output_delay.jpeg)](https://oss.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_zc_isr_output_delay.jpeg)
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_zc_isr_output_delay.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_zc_isr_output_delay.jpeg)
