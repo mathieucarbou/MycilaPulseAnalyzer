@@ -18,11 +18,12 @@
 #include <hal/timer_hal.h>
 #include <hal/timer_ll.h>
 #include <rom/ets_sys.h>
-#include <stdatomic.h>
 #include <sys/lock.h>
 
+#include <atomic>
+
 ///////////////////////////////////////////////////////////////////////////
-// FROM
+// FROM gptimer_priv.h
 ///////////////////////////////////////////////////////////////////////////
 
 typedef struct gptimer_group_t {
@@ -68,6 +69,10 @@ struct gptimer_t {
         uint32_t alarm_en : 1;
     } flags;
 };
+
+///////////////////////////////////////////////////////////////////////////
+// FROM gptimer.c
+///////////////////////////////////////////////////////////////////////////
 
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, unsigned long long* value) {
   ESP_RETURN_ON_FALSE_ISR(timer && value, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
