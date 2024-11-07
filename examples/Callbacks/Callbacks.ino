@@ -96,7 +96,7 @@ uint32_t lastEnd = 0;
 void loop() {
   if (millis() - lastTime > 500) {
 
-    Serial.printf("%" PRIu32 " F=%" PRIu32 " Hz P=%" PRIu32 " us ", edgeCount / 2 - zeroCrossCount, pulseAnalyzer.getNominalGridFrequency(), pulseAnalyzer.getNominalGridPeriod());
+    Serial.printf("%" PRIu32 " F=%" PRIu8 " Hz P=%" PRIu16 " us ", edgeCount / 2 - zeroCrossCount, pulseAnalyzer.getNominalGridFrequency(), pulseAnalyzer.getNominalGridPeriod());
 
 #ifdef MYCILA_JSON_SUPPORT
     JsonDocument doc;

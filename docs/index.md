@@ -15,6 +15,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
   - [Robodyn](#robodyn)
   - [Zero-Cross Detector from Daniel S](#zero-cross-detector-from-daniel-s)
   - [BM1Z102FJ chip based ZCD](#bm1z102fj-chip-based-zcd)
+  - [JSY-MK-194G](#jsy-mk-194g)
 - [Use-Case: Thyristor TRIAC Control](#use-case-thyristor-triac-control)
 - [Use-Case: Know when the AC voltage is positive or negative](#use-case-know-when-the-ac-voltage-is-positive-or-negative)
 - [Readings](#readings)
@@ -49,9 +50,11 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
 
 - High precision pulse matching AC wave +/- components based on BM1Z102FJ chip (e.g. [AC VOLTAGE ZERO CROSS DETECTOR](https://www.electronics-lab.com/project/ac-voltage-zero-cross-detector/) - note that this one needs an [additional optocoupler](https://www.youtube.com/watch?v=1-9yDTj2IQw&lc=UgzWwX5jGTsKvb3e09t4AaABAg.9Vk7pMApNK39VmUSzBJooq) like TLP2630 or 6N136)
 
+- [JSY-MK-194G Zero-Cross Pulse](https://yasolr.carbou.me/blog/2024-11-07_jsy_mk_194g) where the pulse length equals the period length
+
 More hardware are supported, as long as they fall into one of these categories above.
 
-| ![](https://yasolr.carbou.me/assets/img/measurements/Oscillo_ZCD.jpeg) | ![](https://yasolr.carbou.me/assets/img/measurements/Oscillo_ZCD_Robodyn.jpeg) | ![](https://www.electronics-lab.com/wp-content/uploads/2021/09/Output-Delay-Setting-DSET-Pin-Setting-Resistor-R7.jpg) |
+| ![](https://yasolr.carbou.me/assets/img/measurements/Oscillo_ZCD.jpeg) | ![](https://yasolr.carbou.me/assets/img/measurements/Oscillo_ZCD_Robodyn.jpeg) ![](https://yasolr.carbou.me/assets/img/measurements/Oscillo_JSY-MK-194G_ZC_5ms.png) | | ![](https://www.electronics-lab.com/wp-content/uploads/2021/09/Output-Delay-Setting-DSET-Pin-Setting-Resistor-R7.jpg) |
 
 ## Usage
 
@@ -167,6 +170,18 @@ Oscilloscope view with default Zero-Cross event (shifted by -200 us)
 Oscilloscope view with default Zero-Cross event (shifted by 200 us)
 
 [![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)
+
+### JSY-MK-194G
+
+View of the JSY-MK-194G Zero-Cross pulse on a 5 ms / div oscilloscope.
+The pulse width is 20 ms on a 50 Hz AC voltage.
+
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_JSY-MK-194G_ZC_5ms.png)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_JSY-MK-194G_ZC_5ms.png)
+
+View of the JSY-MK-194G Zero-Cross pulse on a 100 us / div oscilloscope.
+The blue lines represent the edge detection and the Zero-Cross event (shifted 100-150 us before zero).
+
+[![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_JSY-MK-194G_ZC_100us.png)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_JSY-MK-194G_ZC_100us.png)
 
 ## Use-Case: Thyristor TRIAC Control
 
