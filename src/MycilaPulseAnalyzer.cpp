@@ -44,14 +44,122 @@ extern Mycila::Logger logger;
                                         (((1ULL << (gpio_num)) & SOC_GPIO_VALID_GPIO_MASK) != 0))
 #endif
 
+// Periods for 50 Hz
+#define MYCILA_PERIOD_48_US 20800 // for 48 Hz
+#define MYCILA_PERIOD_49_US 20408 // for 49 Hz
+#define MYCILA_PERIOD_50_US 20000 // for 50 Hz
+#define MYCILA_PERIOD_51_US 19608 // for 51 Hz
+#define MYCILA_PERIOD_52_US 19200 // for 52 Hz
+#define MYCILA_PERIOD_53_US 18868 // for 53 Hz
+#define MYCILA_PERIOD_54_US 18518 // for 54 Hz
+#define MYCILA_PERIOD_55_US 18182 // for 55 Hz
+#define MYCILA_PERIOD_56_US 17858 // for 56 Hz
+#define MYCILA_PERIOD_57_US 17544 // for 57 Hz
+#define MYCILA_PERIOD_58_US 17240 // for 58 Hz
+#define MYCILA_PERIOD_59_US 16950 // for 59 Hz
+#define MYCILA_PERIOD_60_US 16666 // for 60 Hz
+#define MYCILA_PERIOD_61_US 16394 // for 61 Hz
+#define MYCILA_PERIOD_62_US 16130 // for 62 Hz
+
+// Semi-periods for 50 Hz
+#define MYCILA_SEMI_PERIOD_48_US 10400 // for 48 Hz
+#define MYCILA_SEMI_PERIOD_49_US 10204 // for 49 Hz
+#define MYCILA_SEMI_PERIOD_50_US 10000 // for 50 Hz
+#define MYCILA_SEMI_PERIOD_51_US 9804  // for 51 Hz
+#define MYCILA_SEMI_PERIOD_52_US 9600  // for 52 Hz
+#define MYCILA_SEMI_PERIOD_53_US 9434  // for 53 Hz
+#define MYCILA_SEMI_PERIOD_54_US 9259  // for 54 Hz
+#define MYCILA_SEMI_PERIOD_55_US 9091  // for 55 Hz
+#define MYCILA_SEMI_PERIOD_56_US 8929  // for 56 Hz
+#define MYCILA_SEMI_PERIOD_57_US 8772  // for 57 Hz
+#define MYCILA_SEMI_PERIOD_58_US 8620  // for 58 Hz
+#define MYCILA_SEMI_PERIOD_59_US 8475  // for 59 Hz
+#define MYCILA_SEMI_PERIOD_60_US 8333  // for 60 Hz
+#define MYCILA_SEMI_PERIOD_61_US 8197  // for 61 Hz
+#define MYCILA_SEMI_PERIOD_62_US 8065  // for 62 Hz
+
+// pulse width filtering to avoid spurious detections
+#define MYCILA_PULSE_MIN_WIDTH_US 100
+#define MYCILA_PULSE_MAX_WIDTH_US 21000
+
+#define PERIODS_LEN 15
+
+static constexpr uint16_t PERIODS[] = {
+  MYCILA_PERIOD_48_US,
+  MYCILA_PERIOD_49_US,
+  MYCILA_PERIOD_50_US,
+  MYCILA_PERIOD_51_US,
+  MYCILA_PERIOD_52_US,
+  MYCILA_PERIOD_53_US,
+  MYCILA_PERIOD_54_US,
+  MYCILA_PERIOD_55_US,
+  MYCILA_PERIOD_56_US,
+  MYCILA_PERIOD_57_US,
+  MYCILA_PERIOD_58_US,
+  MYCILA_PERIOD_59_US,
+  MYCILA_PERIOD_60_US,
+  MYCILA_PERIOD_61_US,
+  MYCILA_PERIOD_62_US,
+};
+static constexpr uint16_t SEMI_PERIODS[] = {
+  MYCILA_SEMI_PERIOD_48_US,
+  MYCILA_SEMI_PERIOD_49_US,
+  MYCILA_SEMI_PERIOD_50_US,
+  MYCILA_SEMI_PERIOD_51_US,
+  MYCILA_SEMI_PERIOD_52_US,
+  MYCILA_SEMI_PERIOD_53_US,
+  MYCILA_SEMI_PERIOD_54_US,
+  MYCILA_SEMI_PERIOD_55_US,
+  MYCILA_SEMI_PERIOD_56_US,
+  MYCILA_SEMI_PERIOD_57_US,
+  MYCILA_SEMI_PERIOD_58_US,
+  MYCILA_SEMI_PERIOD_59_US,
+  MYCILA_SEMI_PERIOD_60_US,
+  MYCILA_SEMI_PERIOD_61_US,
+  MYCILA_SEMI_PERIOD_62_US,
+};
+
+// search the closest value in above arrays sorted in descending order
+__attribute__((always_inline)) inline static uint16_t closest(const uint16_t* array, uint16_t n) {
+  int32_t left = 0, right = PERIODS_LEN - 1, mid;
+
+  // binary search
+  while (left <= right) {
+    mid = left + ((right - left) >> 1);
+    // found!
+    if (array[mid] == n)
+      return n;
+    // if middle value is greater than n, search in the remaining right half
+    if (array[mid] > n)
+      left = mid + 1;
+    else
+      right = mid - 1; // right can become before left
+  }
+
+  // target is between left and right and right can be before left
+  if (left >= PERIODS_LEN || array[right] == n)
+    return array[right];
+  if (right < 0 || array[left] == n)
+    return array[left];
+
+  // return the closest value
+  return ((array[left] > n ? array[left] - n : n - array[left]) <
+          (array[right] > n ? array[right] - n : n - array[right]))
+           ? array[left]
+           : array[right];
+}
+
 #ifdef MYCILA_JSON_SUPPORT
 void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
   root["enabled"] = isEnabled();
   root["online"] = isOnline();
-  root["grid_period"] = _nominalGridPeriod;
+  root["type"] = static_cast<uint8_t>(_type);
+  root["nominal"]["frequency"] = getFrequency();
+  root["nominal"]["period"] = _nominalSemiPeriod;
   root["period"] = _period;
   root["period_min"] = _periodMin;
   root["period_max"] = _periodMax;
+  root["shift"] = _zcShift;
   root["width"] = _width;
   root["width_min"] = _widthMin;
   root["width_max"] = _widthMax;
@@ -79,6 +187,9 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   timer_config.direction = GPTIMER_COUNT_UP;
   timer_config.resolution_hz = 1000000; // 1MHz resolution
   timer_config.flags.intr_shared = true;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+  timer_config.flags.backup_before_sleep = false;
+#endif
   timer_config.intr_priority = 0;
 
   // watchdog timer
@@ -90,7 +201,7 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   ESP_ERROR_CHECK(gptimer_enable(_onlineTimer));
 
   gptimer_alarm_config_t online_alarm_cfg;
-  online_alarm_cfg.alarm_count = (MYCILA_PULSE_SAMPLES / 2 + 1) * MYCILA_PULSE_MAX_SEMI_PERIOD_US;
+  online_alarm_cfg.alarm_count = 20 * MYCILA_PERIOD_48_US; // more than 400 ms
   online_alarm_cfg.reload_count = 0;
   online_alarm_cfg.flags.auto_reload_on_alarm = true;
   ESP_ERROR_CHECK(inlined_gptimer_set_alarm_action(_onlineTimer, &online_alarm_cfg));
@@ -133,12 +244,13 @@ void Mycila::PulseAnalyzer::end() {
   _size = 0;
   _lastEvent = Event::SIGNAL_NONE;
   _type = Type::TYPE_UNKNOWN;
+  _zcShift = MYCILA_PULSE_ZC_SHIFT_US;
 
   _period = 0;
   _periodMin = 0;
   _periodMax = 0;
 
-  _nominalGridPeriod = 0;
+  _nominalSemiPeriod = 0;
 
   _width = 0;
   _widthMin = 0;
@@ -165,12 +277,13 @@ bool ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_onlineTimerISR(gptimer_handle_t ti
   instance->_size = 0;
   instance->_lastEvent = Event::SIGNAL_NONE;
   instance->_type = Type::TYPE_UNKNOWN;
+  instance->_zcShift = MYCILA_PULSE_ZC_SHIFT_US;
 
   instance->_period = 0;
   instance->_periodMin = 0;
   instance->_periodMax = 0;
 
-  instance->_nominalGridPeriod = 0;
+  instance->_nominalSemiPeriod = 0;
 
   instance->_width = 0;
   instance->_widthMin = 0;
@@ -184,10 +297,11 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   gptimer_handle_t zcTimer = instance->_zcTimer;
   gptimer_handle_t onlineTimer = instance->_onlineTimer;
 
-  uint64_t raw_count;
-  ESP_ERROR_CHECK(inlined_gptimer_get_raw_count(onlineTimer, &raw_count));
+  if (!onlineTimer || !zcTimer)
+    return;
 
-  const uint32_t diff = static_cast<uint32_t>(raw_count);
+  uint64_t diff;
+  ESP_ERROR_CHECK(inlined_gptimer_get_raw_count(onlineTimer, &diff));
 
   // connected for the first time ?
   if (!diff) {
@@ -200,14 +314,14 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
 
   // Filter out spurious interrupts happening during a slow rising / falling slope
   // See: https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection
-  if (diff < MYCILA_PULSE_MIN_PULSE_WIDTH_US)
+  if (diff < MYCILA_PULSE_MIN_WIDTH_US)
     return;
 
   // Reset Watchdog for online/offline detection
   ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(onlineTimer, 0));
 
   // long time no see ? => reset
-  if (diff > MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
+  if (diff > MYCILA_PERIOD_48_US) {
     instance->_size = 0;
     instance->_lastEvent = Event::SIGNAL_NONE;
 #ifdef MYCILA_PULSE_DEBUG
@@ -232,21 +346,22 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   instance->_lastEvent = event;
 
   // sync alarms for ZC ISR
-  if (instance->_nominalGridPeriod) {
+  if (instance->_type) {
     switch (instance->_type) {
-      case Type::TYPE_BM1Z102FJ:
-        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : instance->_nominalGridPeriod / 2) - MYCILA_PULSE_ZC_SHIFT_US));
+      case Type::TYPE_FULL_PERIOD:
+      case Type::TYPE_SEMI_PERIOD: {
+        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (instance->_zcShift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_zcShift));
         break;
-
-      case Type::TYPE_PULSE:
+      }
+      case Type::TYPE_SHORT: {
         if (event == Event::SIGNAL_FALLING) {
-          int position = diff / 2;
-          if (position >= MYCILA_PULSE_ZC_SHIFT_US)
-            position -= MYCILA_PULSE_ZC_SHIFT_US;
-          ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, position));
+          int16_t pos = (static_cast<int16_t>(diff) >> 1) - instance->_zcShift; // position == middle of the pulse compensated by shift
+          if (pos < 0)
+            pos += instance->_nominalSemiPeriod;
+          ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, pos));
         }
         break;
-
+      }
       default:
         assert(false);
         break;
@@ -258,44 +373,34 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     instance->_onEdge(event, instance->_onEdgeArg);
 
   // Pulse analysis done ?
-  if (instance->_nominalGridPeriod && instance->_width)
+  if (instance->_type)
     return;
 
-  instance->_widths[instance->_size] = diff;
-  instance->_size = instance->_size + 1;
+  instance->_widths[instance->_size++] = diff;
 
   // analyze pulse width when we have all samples
   if (instance->_size == MYCILA_PULSE_SAMPLES) {
     // analyze pulse width
-    if (!instance->_width) {
-      uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
+    int32_t value = 0, sum = 0, min = INT32_MAX, max = 0;
 
-      for (size_t i = event == Event::SIGNAL_RISING ? 0 : 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
-        value = instance->_widths[i];
-        sum += value;
-        if (value < min)
-          min = value;
-        if (value > max)
-          max = value;
-      }
-
-      value = sum * 2 / MYCILA_PULSE_SAMPLES;
-
-      if (value >= MYCILA_PULSE_MIN_PULSE_WIDTH_US && value <= MYCILA_PULSE_MAX_PULSE_WIDTH_US) {
-        instance->_width = value;
-        instance->_widthMin = min;
-        instance->_widthMax = max;
-
-      } else {
-#ifdef MYCILA_PULSE_DEBUG
-        ets_printf("ERR: width\n");
-#endif
-      }
+    for (size_t i = event == Event::SIGNAL_RISING ? 0 : 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
+      value = instance->_widths[i];
+      sum += value;
+      if (value < min)
+        min = value;
+      if (value > max)
+        max = value;
     }
 
-    // analyze pulse period
-    if (!instance->_nominalGridPeriod) {
-      uint32_t value = 0, sum = 0, min = UINT32_MAX, max = 0;
+    value = (sum << 1) / MYCILA_PULSE_SAMPLES;
+
+    if (value >= MYCILA_PULSE_MIN_WIDTH_US && value <= MYCILA_PULSE_MAX_WIDTH_US) {
+      instance->_width = value;
+      instance->_widthMin = min;
+      instance->_widthMax = max;
+
+      // analyze pulse period
+      value = 0, sum = 0, min = INT32_MAX, max = 0;
 
       for (size_t i = 1; i < MYCILA_PULSE_SAMPLES; i += 2) {
         value = instance->_widths[i] + instance->_widths[i - 1];
@@ -306,54 +411,89 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
           max = value;
       }
 
-      value = sum * 2 / MYCILA_PULSE_SAMPLES;
+      value = (sum << 1) / MYCILA_PULSE_SAMPLES;
 
-      // BM1Z102FJ
-      bool maybeBM1Z102FJ = false;
-      if (value > MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
-        maybeBM1Z102FJ = true;
-        value /= 2;
-        min /= 2;
-        max /= 2;
+#ifdef MYCILA_PULSE_DEBUG
+      ets_printf("DBG: value=%d\n", value);
+#endif
+
+      // value ~= 40000 at 50 Hz with JSY-MK-194G pulse of 20 ms
+      // value ~= 33333 at 60 Hz with JSY-MK-194G pulse of 20 ms
+      // value ~= 20000 at 50 Hz with BM1Z102FJ pulse of 10 ms
+      // value ~= 16666 at 60 Hz with BM1Z102FJ pulse of 10 ms
+      // -------- 16130 -------------------------------------
+      // value ~= 10000 at 50 Hz with Robodyn pulse of 450 us
+      // value ~=  8333 at 60 Hz with Robodyn pulse of 450 us
+      if (value >= MYCILA_PERIOD_62_US) {
+        value >>= 1;
+        min >>= 1;
+        max >>= 1;
+
+        if (value >= MYCILA_PERIOD_62_US && value <= MYCILA_PERIOD_48_US) {
+          // full period pulses like JSY-MK-194G
+          instance->_type = Type::TYPE_FULL_PERIOD;
+          // JSY-MK-194G has a 100 us shift on the right (positif voltage point)
+          // See: https://forum-photovoltaique.fr/viewtopic.php?p=798444#p798444
+          instance->_zcShift -= 100;
+
+        } else if (value >= MYCILA_SEMI_PERIOD_62_US && value <= MYCILA_SEMI_PERIOD_48_US) {
+          // semi period pulses like BM1Z102FJ
+          instance->_type = Type::TYPE_SEMI_PERIOD;
+        }
+
+      } else if (value >= MYCILA_SEMI_PERIOD_62_US && value <= MYCILA_SEMI_PERIOD_48_US) {
+        // short pulses like Robodyn, ZCD from Daniel S, etc
+        instance->_type = Type::TYPE_SHORT;
       }
 
-      if (value >= MYCILA_PULSE_MIN_SEMI_PERIOD_US && value <= MYCILA_PULSE_MAX_SEMI_PERIOD_US) {
+      if (instance->_type != Type::TYPE_UNKNOWN) {
         instance->_period = value;
         instance->_periodMin = min;
         instance->_periodMax = max;
-        instance->_nominalGridPeriod = value ? 1000000 / ((10000000 / value + 5) / 20) : 0;
 
-        if (instance->_type == Type::TYPE_UNKNOWN) {
-          gptimer_alarm_config_t alarm_cfg;
-          alarm_cfg.alarm_count = instance->_nominalGridPeriod / 2;
-          alarm_cfg.reload_count = 0;
-          alarm_cfg.flags.auto_reload_on_alarm = true;
-          ESP_ERROR_CHECK(inlined_gptimer_set_alarm_action(zcTimer, &alarm_cfg));
-          ESP_ERROR_CHECK(inlined_gptimer_start(zcTimer));
-
-          if (maybeBM1Z102FJ) {
-            instance->_type = Type::TYPE_BM1Z102FJ;
-            ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (MYCILA_PULSE_ZC_SHIFT_US < 0 ? 0 : alarm_cfg.alarm_count) - MYCILA_PULSE_ZC_SHIFT_US));
-
-          } else {
-            instance->_type = Type::TYPE_PULSE;
-            if (event == Event::SIGNAL_FALLING) {
-              int position = diff / 2;
-              if (position >= MYCILA_PULSE_ZC_SHIFT_US)
-                position -= MYCILA_PULSE_ZC_SHIFT_US;
-              ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, position));
-            }
+        sum = 0;
+        switch (instance->_type) {
+          case Type::TYPE_FULL_PERIOD: {
+            instance->_nominalSemiPeriod = closest(PERIODS, value) >> 1;
+            sum = (instance->_zcShift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_zcShift;
+            break;
           }
+          case Type::TYPE_SEMI_PERIOD: {
+            instance->_nominalSemiPeriod = closest(SEMI_PERIODS, value);
+            sum = (instance->_zcShift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_zcShift;
+            break;
+          }
+          case Type::TYPE_SHORT: {
+            instance->_nominalSemiPeriod = closest(SEMI_PERIODS, value);
+            if (event == Event::SIGNAL_FALLING)
+              sum = (static_cast<int16_t>(diff) >> 1) - instance->_zcShift; // position == middle of the pulse compensated by shift
+            else
+              sum = -(static_cast<int16_t>(diff) >> 1) - instance->_zcShift;
+            if (sum < 0)
+              sum += instance->_nominalSemiPeriod;
+            break;
+          }
+          default:
+            assert(false);
+            break;
         }
 
-      } else {
-#ifdef MYCILA_PULSE_DEBUG
-        ets_printf("ERR: period\n");
-#endif
+        // start ZC timer
+        gptimer_alarm_config_t alarm_cfg;
+        alarm_cfg.alarm_count = instance->_nominalSemiPeriod;
+        alarm_cfg.reload_count = 0;
+        alarm_cfg.flags.auto_reload_on_alarm = true;
+        ESP_ERROR_CHECK(inlined_gptimer_set_alarm_action(zcTimer, &alarm_cfg));
+        ESP_ERROR_CHECK(inlined_gptimer_start(zcTimer));
+        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, sum));
+        return;
       }
     }
 
     // reset index for a next round of capture
     instance->_size = 0;
+#ifdef MYCILA_PULSE_DEBUG
+    ets_printf("ERR: width\n");
+#endif
   }
 }

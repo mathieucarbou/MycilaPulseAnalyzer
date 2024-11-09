@@ -17,28 +17,8 @@
 #define MYCILA_PULSE_VERSION_MINOR    3
 #define MYCILA_PULSE_VERSION_REVISION 6
 
-#ifndef MYCILA_PULSE_SAMPLES
-  // sample count for analysis
-  #define MYCILA_PULSE_SAMPLES 50
-#endif
-
-#ifndef MYCILA_PULSE_MIN_SEMI_PERIOD_US
-  // semi-period check
-  #define MYCILA_PULSE_MIN_SEMI_PERIOD_US 8000 // About 62.5 Hz
-#endif
-#ifndef MYCILA_PULSE_MAX_SEMI_PERIOD_US
-  // semi-period check
-  #define MYCILA_PULSE_MAX_SEMI_PERIOD_US 10400 // about 48 Hz
-#endif
-
-#ifndef MYCILA_PULSE_MIN_PULSE_WIDTH_US
-  // pulse width filtering
-  #define MYCILA_PULSE_MIN_PULSE_WIDTH_US 100
-#endif
-#ifndef MYCILA_PULSE_MAX_PULSE_WIDTH_US
-  // pulse width filtering
-  #define MYCILA_PULSE_MAX_PULSE_WIDTH_US MYCILA_PULSE_MAX_SEMI_PERIOD_US
-#endif
+// sample count for analysis
+#define MYCILA_PULSE_SAMPLES 50
 
 #ifndef MYCILA_PULSE_ZC_SHIFT_US
   // Shift to apply when setting the zero-crossing timer.
@@ -53,7 +33,7 @@
   //
   // It could also be used for other purposes, like delay the ZC event for 5000 us so that the ZC event is always
   // triggered at the voltage peak (90 degree angle) of the sine wave.
-  #define MYCILA_PULSE_ZC_SHIFT_US -100
+  #define MYCILA_PULSE_ZC_SHIFT_US -150
 #endif
 
 // #define MYCILA_PULSE_DEBUG
@@ -71,8 +51,12 @@ namespace Mycila {
 
       typedef enum {
         TYPE_UNKNOWN = 0,
-        TYPE_PULSE = 1,
-        TYPE_BM1Z102FJ = 2,
+        // Robodyn, ZCD from Daniel S, etc
+        TYPE_SHORT = 1,
+        // ZCD based on BM1Z102FJ chip
+        TYPE_SEMI_PERIOD = 2,
+        // ZCd based on RENERGY RN8209G like JSY-MK-194G
+        TYPE_FULL_PERIOD = 3,
       } Type;
 
       typedef void (*EventCallback)(Event event, void* arg);
@@ -126,26 +110,28 @@ namespace Mycila {
       Event getLastEvent() const { return _lastEvent; }
 
       // Pulse period in microseconds (average of the last N samples)
-      uint32_t getPeriod() const { return _period; }
+      uint16_t getPeriod() const { return _period; }
       // Minimum pulse period ever seen in microseconds
-      uint32_t getMinPeriod() const { return _periodMin; }
+      uint16_t getMinPeriod() const { return _periodMin; }
       // Maximum pulse period ever seen in microseconds
-      uint32_t getMaxPeriod() const { return _periodMax; }
+      uint16_t getMaxPeriod() const { return _periodMax; }
 
       // Pulse frequency in Hz
-      uint32_t getFrequency() const { return _period ? 1000000 / _period : 0; }
+      uint8_t getFrequency() const { return _period ? 1000000 / _period : 0; }
 
+      // Nominal grid semi-period in microseconds
+      uint16_t getNominalGridSemiPeriod() const { return _nominalSemiPeriod; }
       // Nominal grid period in microseconds
-      uint32_t getNominalGridPeriod() const { return _nominalGridPeriod; }
+      uint16_t getNominalGridPeriod() const { return _nominalSemiPeriod << 1; }
       // Nominal grid frequency in Hz (50 Hz / 60 Hz)
-      uint32_t getNominalGridFrequency() const { return _nominalGridPeriod ? 1000000 / _nominalGridPeriod : 0; }
+      uint8_t getNominalGridFrequency() const { return _nominalSemiPeriod ? 1000000 / (_nominalSemiPeriod << 1) : 0; }
 
       // Pulse width in microseconds (average of the last N samples)
-      uint32_t getWidth() const { return _width; }
+      uint16_t getWidth() const { return _width; }
       // Minimum pulse width ever seen in microseconds
-      uint32_t getMinWidth() const { return _widthMin; }
+      uint16_t getMinWidth() const { return _widthMin; }
       // Maximum pulse width ever seen in microseconds
-      uint32_t getMaxWidth() const { return _widthMax; }
+      uint16_t getMaxWidth() const { return _widthMax; }
 
     private:
       // ISR
@@ -160,23 +146,26 @@ namespace Mycila {
       gptimer_handle_t _zcTimer = nullptr;
 
       // Internal ISR variables
-      uint32_t _widths[MYCILA_PULSE_SAMPLES];
+      uint16_t _widths[MYCILA_PULSE_SAMPLES];
       size_t _size = 0;
       Event _lastEvent = SIGNAL_NONE;
       Type _type = TYPE_UNKNOWN;
 
       // measured pulse period
-      uint32_t _period = 0;
-      uint32_t _periodMin = 0;
-      uint32_t _periodMax = 0;
+      uint16_t _period = 0;
+      uint16_t _periodMin = 0;
+      uint16_t _periodMax = 0;
 
       // nominal values
-      uint32_t _nominalGridPeriod = 0;
+      uint16_t _nominalSemiPeriod = 0;
 
       // measured pulse width
-      uint32_t _width = 0;
-      uint32_t _widthMin = 0;
-      uint32_t _widthMax = 0;
+      uint16_t _width = 0;
+      uint16_t _widthMin = 0;
+      uint16_t _widthMax = 0;
+
+      // shift for ZC event
+      int16_t _zcShift = MYCILA_PULSE_ZC_SHIFT_US;
 
       // events
       EventCallback _onEdge = nullptr;
