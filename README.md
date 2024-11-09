@@ -42,6 +42,8 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
   - Minimum Pulse Width
   - Maximum Pulse Width
 
+This library is used in [YasSolr](https://yasolr.carbou.me) Solar Router to detect Zero-Cross pulse and control the Thyristor / TRIAC with many supported ZCD modules.
+
 ## Supported ZCD Circuits
 
 - Square short pulse (e.g. [Zero-Cross Detector from Daniel](https://www.pcbway.com/project/shareproject/Zero_Cross_Detector_a707a878.html))
@@ -173,6 +175,8 @@ Oscilloscope view with default Zero-Cross event (shifted by 200 us)
 
 ### JSY-MK-194G
 
+This library also supports the Zx pin of the JSY-MK-194G, which is a ZC pulse of 20 ms.
+
 View of the JSY-MK-194G Zero-Cross pulse on a 5 ms / div oscilloscope.
 The pulse width is 20 ms on a 50 Hz AC voltage.
 
@@ -182,6 +186,8 @@ View of the JSY-MK-194G Zero-Cross pulse on a 100 us / div oscilloscope.
 The blue lines represent the edge detection and the Zero-Cross event (shifted 100-150 us before zero).
 
 [![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_JSY-MK-194G_ZC_100us.png)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_JSY-MK-194G_ZC_100us.png)
+
+You can also have a look at [MycilaJSY](https://mathieu.carbou.me/MycilaJSY) to control the JSY-MK-194G.
 
 ## Use-Case: Thyristor TRIAC Control
 
