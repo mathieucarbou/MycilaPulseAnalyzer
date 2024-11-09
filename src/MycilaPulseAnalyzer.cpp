@@ -154,8 +154,7 @@ void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
   root["enabled"] = isEnabled();
   root["online"] = isOnline();
   root["type"] = static_cast<uint8_t>(_type);
-  root["nominal"]["frequency"] = getFrequency();
-  root["nominal"]["period"] = _nominalSemiPeriod;
+  root["frequency"] = getFrequency();
   root["period"] = _period;
   root["period_min"] = _periodMin;
   root["period_max"] = _periodMax;
@@ -163,6 +162,9 @@ void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
   root["width"] = _width;
   root["width_min"] = _widthMin;
   root["width_max"] = _widthMax;
+  root["grid"]["frequency"] = getNominalGridFrequency();
+  root["grid"]["period"] = getNominalGridPeriod();
+  root["grid"]["semi-period"] = getNominalGridSemiPeriod();
 }
 #endif
 
