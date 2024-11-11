@@ -158,7 +158,7 @@ void Mycila::PulseAnalyzer::toJson(const JsonObject& root) const {
   root["period"] = _period;
   root["period_min"] = _periodMin;
   root["period_max"] = _periodMax;
-  root["shift"] = _zcShift;
+  root["shift"] = _shift;
   root["width"] = _width;
   root["width_min"] = _widthMin;
   root["width_max"] = _widthMax;
@@ -246,7 +246,7 @@ void Mycila::PulseAnalyzer::end() {
   _size = 0;
   _lastEvent = Event::SIGNAL_NONE;
   _type = Type::TYPE_UNKNOWN;
-  _zcShift = MYCILA_PULSE_ZC_SHIFT_US;
+  _shift = 0;
 
   _period = 0;
   _periodMin = 0;
@@ -279,7 +279,7 @@ bool ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_onlineTimerISR(gptimer_handle_t ti
   instance->_size = 0;
   instance->_lastEvent = Event::SIGNAL_NONE;
   instance->_type = Type::TYPE_UNKNOWN;
-  instance->_zcShift = MYCILA_PULSE_ZC_SHIFT_US;
+  instance->_shift = 0;
 
   instance->_period = 0;
   instance->_periodMin = 0;
@@ -352,12 +352,12 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
     switch (instance->_type) {
       case Type::TYPE_FULL_PERIOD:
       case Type::TYPE_SEMI_PERIOD: {
-        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (instance->_zcShift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_zcShift));
+        ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, (instance->_shift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_shift));
         break;
       }
       case Type::TYPE_SHORT: {
         if (event == Event::SIGNAL_FALLING) {
-          int16_t pos = (static_cast<int16_t>(diff) >> 1) - instance->_zcShift; // position == middle of the pulse compensated by shift
+          int16_t pos = (static_cast<int16_t>(diff) >> 1) - instance->_shift; // position == middle of the pulse compensated by shift
           if (pos < 0)
             pos += instance->_nominalSemiPeriod;
           ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(zcTimer, pos));
@@ -435,17 +435,20 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
           // full period pulses like JSY-MK-194G
           instance->_type = Type::TYPE_FULL_PERIOD;
           // JSY-MK-194G has a 100 us shift on the right (positif voltage point)
+          // JSY-NK-194T has a 1000 us shift on the right (positif voltage point)
           // See: https://forum-photovoltaique.fr/viewtopic.php?p=798444#p798444
-          instance->_zcShift -= 100;
+          instance->_shift = instance->_shiftZC + instance->_shiftJsySignal;
 
         } else if (value >= MYCILA_SEMI_PERIOD_62_US && value <= MYCILA_SEMI_PERIOD_48_US) {
           // semi period pulses like BM1Z102FJ
           instance->_type = Type::TYPE_SEMI_PERIOD;
+          instance->_shift = instance->_shiftZC;
         }
 
       } else if (value >= MYCILA_SEMI_PERIOD_62_US && value <= MYCILA_SEMI_PERIOD_48_US) {
         // short pulses like Robodyn, ZCD from Daniel S, etc
         instance->_type = Type::TYPE_SHORT;
+        instance->_shift = instance->_shiftZC;
       }
 
       if (instance->_type != Type::TYPE_UNKNOWN) {
@@ -457,20 +460,20 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
         switch (instance->_type) {
           case Type::TYPE_FULL_PERIOD: {
             instance->_nominalSemiPeriod = closest(PERIODS, value) >> 1;
-            sum = (instance->_zcShift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_zcShift;
+            sum = (instance->_shift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_shift;
             break;
           }
           case Type::TYPE_SEMI_PERIOD: {
             instance->_nominalSemiPeriod = closest(SEMI_PERIODS, value);
-            sum = (instance->_zcShift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_zcShift;
+            sum = (instance->_shift < 0 ? 0 : instance->_nominalSemiPeriod) - instance->_shift;
             break;
           }
           case Type::TYPE_SHORT: {
             instance->_nominalSemiPeriod = closest(SEMI_PERIODS, value);
             if (event == Event::SIGNAL_FALLING)
-              sum = (static_cast<int16_t>(diff) >> 1) - instance->_zcShift; // position == middle of the pulse compensated by shift
+              sum = (static_cast<int16_t>(diff) >> 1) - instance->_shift; // position == middle of the pulse compensated by shift
             else
-              sum = -(static_cast<int16_t>(diff) >> 1) - instance->_zcShift;
+              sum = -(static_cast<int16_t>(diff) >> 1) - instance->_shift;
             if (sum < 0)
               sum += instance->_nominalSemiPeriod;
             break;

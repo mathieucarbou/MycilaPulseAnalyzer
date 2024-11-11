@@ -15,7 +15,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
   - [Robodyn](#robodyn)
   - [Zero-Cross Detector from Daniel S](#zero-cross-detector-from-daniel-s)
   - [BM1Z102FJ chip based ZCD](#bm1z102fj-chip-based-zcd)
-  - [JSY-MK-194G](#jsy-mk-194g)
+  - [JSY-MK-194](#jsy-mk-194)
 - [Use-Case: Thyristor TRIAC Control](#use-case-thyristor-triac-control)
 - [Use-Case: Know when the AC voltage is positive or negative](#use-case-know-when-the-ac-voltage-is-positive-or-negative)
 - [Readings](#readings)
@@ -120,7 +120,24 @@ You can look at teh examples in the project to see how to use this library with 
 
 Compile flag `-D MYCILA_PULSE_ZC_SHIFT_US` is used to control the shift of the Zero-Cross event.
 
-By default, the value is set to -100 us, which means that the Zero-Cross event is shifted by - 100 us from the middle of the pulse (or start in the case of the BM1Z102FJ chip).
+By default, the value is set to -150 us, which means that the Zero-Cross event is shifted by - 150 us **from the middle of the pulse** (or start of the front edge in the case of the BM1Z102FJ chip).
+
+The shift can also be configured with:
+
+```cpp
+```
+
+**For the JSY-MK-194**
+
+`MYCILA_JSY_194_SIGNAL_SHIFT_US` is used to compensate the signal shift of the JSY-MK-194, because the JSY will detect the Zero-Cross event ~ 100 us after the actual zero.
+The JSY-MK-194T detection happens after 1000 us.
+
+You can also use the getters and setters:
+
+```cpp
+pulseAnalyzer.setJSY194SignalShift(100); // For JSY-MK-194G
+pulseAnalyzer.setJSY194SignalShift(1000); // For JSY-MK-194T
+```
 
 ## Oscilloscope Views
 
@@ -173,9 +190,9 @@ Oscilloscope view with default Zero-Cross event (shifted by 200 us)
 
 [![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/BM1Z102FJ_zc_shift2.jpeg)
 
-### JSY-MK-194G
+### JSY-MK-194
 
-This library also supports the Zx pin of the JSY-MK-194G, which is a ZC pulse of 20 ms.
+This library also supports the Zx pin of the JSY-MK-194G (JSY-MK-194T and other JSy boards probably supported, but untested), which is a ZC pulse of 20 ms.
 
 View of the JSY-MK-194G Zero-Cross pulse on a 5 ms / div oscilloscope.
 The pulse width is 20 ms on a 50 Hz AC voltage.

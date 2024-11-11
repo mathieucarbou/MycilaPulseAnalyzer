@@ -36,6 +36,15 @@
   #define MYCILA_PULSE_ZC_SHIFT_US -150
 #endif
 
+#ifndef MYCILA_JSY_194_SIGNAL_SHIFT_US
+  // Shift used to compensate the zero-crossing signal sent by the JSY-MK-194 boards.
+  // The zero-crossing signal of the JSY is sent when the positive point is detected.
+  // This value is used to compensate this delay and must be set to the time the zero-crossing signal is sent after the real zero-crossing.
+  // Set it to -100 us for JSY-MK-194G.
+  // Set it to -1000 us for JSY-MK-194T
+  #define MYCILA_JSY_194_SIGNAL_SHIFT_US -100
+#endif
+
 // #define MYCILA_PULSE_DEBUG
 
 namespace Mycila {
@@ -78,6 +87,16 @@ namespace Mycila {
         _onZeroCrossArg = arg;
       }
 
+      // shift to apply to apply before or after zero when to send the zero-crossing event, in us
+      // Default to MYCILA_PULSE_ZC_SHIFT_US
+      // Call before begin(), cannot be changed after.
+      void setZeroCrossEventShift(uint16_t shift) { _shiftZC = shift; }
+
+      // shift to apply to recenter the JSY zero-cross signal to zero, in us
+      // Default to MYCILA_JSY_194_SIGNAL_SHIFT_US
+      // Call before begin(), cannot be changed after.
+      void setJSY194SignalShift(uint16_t shift) { _shiftJsySignal = shift; }
+
       /**
        * @brief Start the analyzer
        * @param pinZC Zero-crossing pin
@@ -103,7 +122,7 @@ namespace Mycila {
 
       gpio_num_t getZCPin() const { return _pinZC; }
 
-      // Pulse type detected: pulse or BM1Z102FJ
+      // Pulse type detected
       Type getType() const { return _type; }
 
       // last event detected: rising or falling edge
@@ -165,7 +184,9 @@ namespace Mycila {
       uint16_t _widthMax = 0;
 
       // shift for ZC event
-      int16_t _zcShift = MYCILA_PULSE_ZC_SHIFT_US;
+      int16_t _shiftZC = MYCILA_PULSE_ZC_SHIFT_US;
+      int16_t _shiftJsySignal = MYCILA_JSY_194_SIGNAL_SHIFT_US;
+      int16_t _shift = 0;
 
       // events
       EventCallback _onEdge = nullptr;
