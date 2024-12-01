@@ -262,7 +262,7 @@ void Mycila::PulseAnalyzer::end() {
 bool ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_zcTimerISR(gptimer_handle_t timer, const gptimer_alarm_event_data_t* event, void* arg) {
   Mycila::PulseAnalyzer* instance = (Mycila::PulseAnalyzer*)arg;
   if (instance->_onZeroCross)
-    instance->_onZeroCross(instance->_onZeroCrossArg);
+    instance->_onZeroCross(-instance->_shiftZC, instance->_onZeroCrossArg);
   return false;
 }
 

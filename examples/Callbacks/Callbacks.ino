@@ -56,7 +56,7 @@ static void ARDUINO_ISR_ATTR onEdge(Mycila::PulseAnalyzer::Event e, void* arg) {
 
 // outputs a 1 us pulse when the ZC event is sent
 static volatile uint32_t zeroCrossCount = 0;
-static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
+static void ARDUINO_ISR_ATTR onZeroCross(int16_t delay, void* arg) {
   zeroCrossCount = zeroCrossCount + 1;
   gpio_ll_set_level(&GPIO, PIN_OUTPUT, HIGH);
   wait1us();

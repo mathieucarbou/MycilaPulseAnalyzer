@@ -69,7 +69,12 @@ namespace Mycila {
       } Type;
 
       typedef void (*EventCallback)(Event event, void* arg);
-      typedef void (*Callback)(void* arg);
+
+      // Callback to be called on Zero-Crossing event
+      // The event is called at the supposedly real zero-crossing point, shifted by the value set with setZeroCrossEventShift()
+      // delay will be the time from now, when the real zero-crossing is supposed to happen (or has happened).
+      // For example, if MYCILA_PULSE_ZC_SHIFT_US is set to -150, the delay will be 150 us.
+      typedef void (*Callback)(int16_t delay, void* arg);
 
       // Callback to be called when an edge is detected
       // Callback should be in IRAM (ARDUINO_ISR_ATTR) and do minimal work.

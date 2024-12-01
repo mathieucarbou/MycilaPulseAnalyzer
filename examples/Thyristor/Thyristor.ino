@@ -42,7 +42,7 @@ gptimer_handle_t thyristorTimer;
 volatile uint32_t firingDelay = UINT32_MAX;
 volatile uint32_t semiPeriod = 0;
 
-static void ARDUINO_ISR_ATTR onZeroCross(void* arg) {
+static void ARDUINO_ISR_ATTR onZeroCross(int16_t delay, void* arg) {
   // reset thyristor timer to start counting from this ZC event
   ESP_ERROR_CHECK(inlined_gptimer_set_raw_count(thyristorTimer, 0));
 
