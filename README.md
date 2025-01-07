@@ -42,7 +42,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
   - Minimum Pulse Width
   - Maximum Pulse Width
 
-This library is used in [YasSolr](https://yasolr.carbou.me) Solar Router to detect Zero-Cross pulse and control the Thyristor / TRIAC with many supported ZCD modules.
+This library is used in [YaSolR](https://yasolr.carbou.me) Solar Router to detect Zero-Cross pulse and control the Thyristor / TRIAC with many supported ZCD modules.
 
 ## Supported ZCD Circuits
 

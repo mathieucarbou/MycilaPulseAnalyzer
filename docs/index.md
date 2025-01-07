@@ -42,7 +42,7 @@ ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit an
   - Minimum Pulse Width
   - Maximum Pulse Width
 
-This library is used in [YasSolr](https://yasolr.carbou.me) Solar Router to detect Zero-Cross pulse and control the Thyristor / TRIAC with many supported ZCD modules.
+This library is used in [YaSolR](https://yasolr.carbou.me) Solar Router to detect Zero-Cross pulse and control the Thyristor / TRIAC with many supported ZCD modules.
 
 ## Supported ZCD Circuits
 
@@ -122,9 +122,11 @@ Compile flag `-D MYCILA_PULSE_ZC_SHIFT_US` is used to control the shift of the Z
 
 By default, the value is set to -150 us, which means that the Zero-Cross event is shifted by - 150 us **from the middle of the pulse** (or start of the front edge in the case of the BM1Z102FJ chip).
 
-The shift can also be configured with:
+You can also use the getters and setters:
 
 ```cpp
+pulseAnalyzer.setZeroCrossEventShift(-100);
+pulseAnalyzer.setZeroCrossEventShift(-150); // default value
 ```
 
 **For the JSY-MK-194**
@@ -135,8 +137,8 @@ The JSY-MK-194T detection happens after 1000 us.
 You can also use the getters and setters:
 
 ```cpp
-pulseAnalyzer.setJSY194SignalShift(100); // For JSY-MK-194G
-pulseAnalyzer.setJSY194SignalShift(1000); // For JSY-MK-194T
+pulseAnalyzer.setJSY194SignalShift(-100); // For JSY-MK-194G (default value)
+pulseAnalyzer.setJSY194SignalShift(-1000); // For JSY-MK-194T
 ```
 
 ## Oscilloscope Views
