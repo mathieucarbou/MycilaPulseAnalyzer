@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
- * Copyright (C) 2023-2024 Mathieu Carbou
+ * Copyright (C) 2023-2025 Mathieu Carbou
  *
  * This file is a collections of functions and structures from gptimer_priv.h, gptimer.c and timer_hal.c
  *
