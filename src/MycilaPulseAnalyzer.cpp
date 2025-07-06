@@ -189,10 +189,13 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
   timer_config.direction = GPTIMER_COUNT_UP;
   timer_config.resolution_hz = 1000000; // 1MHz resolution
   timer_config.flags.intr_shared = true;
+  timer_config.intr_priority = 0;
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
   timer_config.flags.backup_before_sleep = false;
 #endif
-  timer_config.intr_priority = 0;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
+  timer_config.flags.allow_pd = false;
+#endif
 
   // watchdog timer
 
