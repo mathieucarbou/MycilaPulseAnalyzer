@@ -44,39 +44,33 @@ extern Mycila::Logger logger;
                                         (((1ULL << (gpio_num)) & SOC_GPIO_VALID_GPIO_MASK) != 0))
 #endif
 
-// Periods for 50 Hz
+// Periods
+
 #define MYCILA_PERIOD_48_US 20800 // for 48 Hz
 #define MYCILA_PERIOD_49_US 20408 // for 49 Hz
 #define MYCILA_PERIOD_50_US 20000 // for 50 Hz
 #define MYCILA_PERIOD_51_US 19608 // for 51 Hz
 #define MYCILA_PERIOD_52_US 19200 // for 52 Hz
-#define MYCILA_PERIOD_53_US 18868 // for 53 Hz
-#define MYCILA_PERIOD_54_US 18518 // for 54 Hz
-#define MYCILA_PERIOD_55_US 18182 // for 55 Hz
-#define MYCILA_PERIOD_56_US 17858 // for 56 Hz
-#define MYCILA_PERIOD_57_US 17544 // for 57 Hz
+
 #define MYCILA_PERIOD_58_US 17240 // for 58 Hz
 #define MYCILA_PERIOD_59_US 16950 // for 59 Hz
 #define MYCILA_PERIOD_60_US 16666 // for 60 Hz
 #define MYCILA_PERIOD_61_US 16394 // for 61 Hz
 #define MYCILA_PERIOD_62_US 16130 // for 62 Hz
 
-// Semi-periods for 50 Hz
+// Semi-periods
+
 #define MYCILA_SEMI_PERIOD_48_US 10400 // for 48 Hz
 #define MYCILA_SEMI_PERIOD_49_US 10204 // for 49 Hz
 #define MYCILA_SEMI_PERIOD_50_US 10000 // for 50 Hz
 #define MYCILA_SEMI_PERIOD_51_US 9804  // for 51 Hz
 #define MYCILA_SEMI_PERIOD_52_US 9600  // for 52 Hz
-#define MYCILA_SEMI_PERIOD_53_US 9434  // for 53 Hz
-#define MYCILA_SEMI_PERIOD_54_US 9259  // for 54 Hz
-#define MYCILA_SEMI_PERIOD_55_US 9091  // for 55 Hz
-#define MYCILA_SEMI_PERIOD_56_US 8929  // for 56 Hz
-#define MYCILA_SEMI_PERIOD_57_US 8772  // for 57 Hz
-#define MYCILA_SEMI_PERIOD_58_US 8620  // for 58 Hz
-#define MYCILA_SEMI_PERIOD_59_US 8475  // for 59 Hz
-#define MYCILA_SEMI_PERIOD_60_US 8333  // for 60 Hz
-#define MYCILA_SEMI_PERIOD_61_US 8197  // for 61 Hz
-#define MYCILA_SEMI_PERIOD_62_US 8065  // for 62 Hz
+
+#define MYCILA_SEMI_PERIOD_58_US 8620 // for 58 Hz
+#define MYCILA_SEMI_PERIOD_59_US 8475 // for 59 Hz
+#define MYCILA_SEMI_PERIOD_60_US 8333 // for 60 Hz
+#define MYCILA_SEMI_PERIOD_61_US 8197 // for 61 Hz
+#define MYCILA_SEMI_PERIOD_62_US 8065 // for 62 Hz
 
 // pulse width filtering to avoid spurious detections
 #define MYCILA_PULSE_MIN_WIDTH_US 100
@@ -90,11 +84,6 @@ static constexpr uint16_t PERIODS[] = {
   MYCILA_PERIOD_50_US,
   MYCILA_PERIOD_51_US,
   MYCILA_PERIOD_52_US,
-  MYCILA_PERIOD_53_US,
-  MYCILA_PERIOD_54_US,
-  MYCILA_PERIOD_55_US,
-  MYCILA_PERIOD_56_US,
-  MYCILA_PERIOD_57_US,
   MYCILA_PERIOD_58_US,
   MYCILA_PERIOD_59_US,
   MYCILA_PERIOD_60_US,
@@ -107,11 +96,6 @@ static constexpr uint16_t SEMI_PERIODS[] = {
   MYCILA_SEMI_PERIOD_50_US,
   MYCILA_SEMI_PERIOD_51_US,
   MYCILA_SEMI_PERIOD_52_US,
-  MYCILA_SEMI_PERIOD_53_US,
-  MYCILA_SEMI_PERIOD_54_US,
-  MYCILA_SEMI_PERIOD_55_US,
-  MYCILA_SEMI_PERIOD_56_US,
-  MYCILA_SEMI_PERIOD_57_US,
   MYCILA_SEMI_PERIOD_58_US,
   MYCILA_SEMI_PERIOD_59_US,
   MYCILA_SEMI_PERIOD_60_US,
@@ -429,12 +413,12 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
       // -------- 16130 -------------------------------------
       // value ~= 10000 at 50 Hz with Robodyn pulse of 450 us
       // value ~=  8333 at 60 Hz with Robodyn pulse of 450 us
-      if (value >= MYCILA_PERIOD_62_US) {
+      if (value > MYCILA_PERIOD_62_US) {
         value >>= 1;
         min >>= 1;
         max >>= 1;
 
-        if (value >= MYCILA_PERIOD_62_US && value <= MYCILA_PERIOD_48_US) {
+        if ((value > MYCILA_PERIOD_52_US && value < MYCILA_PERIOD_48_US) || (value > MYCILA_PERIOD_62_US && value < MYCILA_PERIOD_58_US)) {
           // full period pulses like JSY-MK-194G
           instance->_type = Type::TYPE_FULL_PERIOD;
           // JSY-MK-194G has a 100 us shift on the right (positif voltage point)
@@ -442,13 +426,13 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
           // See: https://forum-photovoltaique.fr/viewtopic.php?p=798444#p798444
           instance->_shift = instance->_shiftZC + instance->_shiftJsySignal;
 
-        } else if (value >= MYCILA_SEMI_PERIOD_62_US && value <= MYCILA_SEMI_PERIOD_48_US) {
+        } else if ((value > MYCILA_SEMI_PERIOD_52_US && value < MYCILA_SEMI_PERIOD_48_US) || (value > MYCILA_SEMI_PERIOD_62_US && value < MYCILA_SEMI_PERIOD_58_US)) {
           // semi period pulses like BM1Z102FJ
           instance->_type = Type::TYPE_SEMI_PERIOD;
           instance->_shift = instance->_shiftZC;
         }
 
-      } else if (value >= MYCILA_SEMI_PERIOD_62_US && value <= MYCILA_SEMI_PERIOD_48_US) {
+      } else if ((value > MYCILA_SEMI_PERIOD_52_US && value < MYCILA_SEMI_PERIOD_48_US) || (value > MYCILA_SEMI_PERIOD_62_US && value < MYCILA_SEMI_PERIOD_58_US)) {
         // short pulses like Robodyn, ZCD from Daniel S, etc
         instance->_type = Type::TYPE_SHORT;
         instance->_shift = instance->_shiftZC;
