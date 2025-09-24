@@ -30,18 +30,13 @@ typedef struct gptimer_group_t {
     int group_id;
     portMUX_TYPE spinlock; // to protect per-group register level concurrent access
     gptimer_t* timers[SOC_TIMER_GROUP_TIMERS_PER_GROUP];
-#if GPTIMER_USE_RETENTION_LINK
-    sleep_retention_module_t sleep_retention_module; // sleep retention module
-    bool retention_link_created;                     // mark if the retention link is created
-#endif
 } gptimer_group_t;
 
 typedef enum {
-  GPTIMER_FSM_INIT,        // Timer is initialized, but not enabled
-  GPTIMER_FSM_ENABLE,      // Timer is enabled, but is not running
-  GPTIMER_FSM_ENABLE_WAIT, // Timer is in the middle of the enable process (Intermediate state)
-  GPTIMER_FSM_RUN,         // Timer is in running
-  GPTIMER_FSM_RUN_WAIT,    // Timer is in the middle of the run process (Intermediate state)
+  GPTIMER_FSM_INIT,   // Timer is initialized, but not enabled yet
+  GPTIMER_FSM_ENABLE, // Timer is enabled, but is not running yet
+  GPTIMER_FSM_RUN,    // Timer is in running
+  GPTIMER_FSM_WAIT,   // Timer is in the middle of state change (Intermediate state)
 } gptimer_fsm_t;
 
 struct gptimer_t {
@@ -75,8 +70,9 @@ struct gptimer_t {
 ///////////////////////////////////////////////////////////////////////////
 
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, unsigned long long* value) {
-  ESP_RETURN_ON_FALSE_ISR(timer && value, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
-
+  if (timer == NULL || value == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
   portENTER_CRITICAL_SAFE(&timer->spinlock);
   timer_ll_trigger_soft_capture((&timer->hal)->dev, (&timer->hal)->timer_id);
   *value = timer_ll_get_counter_value((&timer->hal)->dev, (&timer->hal)->timer_id);
@@ -85,8 +81,9 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gp
 }
 
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_raw_count(gptimer_handle_t timer, unsigned long long value) {
-  ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
-
+  if (timer == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
   portENTER_CRITICAL_SAFE(&timer->spinlock);
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   // - `timer_ll_set_reload_value()` will only indicate the `reload_value`
@@ -105,51 +102,71 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_raw_count(gp
 }
 
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_start(gptimer_handle_t timer) {
-  ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
-
+  if (timer == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
+  if (atomic_load(&timer->fsm) == GPTIMER_FSM_RUN) {
+    return ESP_OK;
+  }
   gptimer_fsm_t expected_fsm = GPTIMER_FSM_ENABLE;
-  if (atomic_compare_exchange_strong(&timer->fsm, &expected_fsm, GPTIMER_FSM_RUN_WAIT)) {
+  if (atomic_compare_exchange_strong(&timer->fsm, &expected_fsm, GPTIMER_FSM_WAIT)) {
     // the register used by the following LL functions are shared with other API,
     // which is possible to run along with this function, so we need to protect
     portENTER_CRITICAL_SAFE(&timer->spinlock);
     timer_ll_enable_alarm(timer->hal.dev, timer->timer_id, timer->flags.alarm_en);
+    // Note here, if the alarm target is set very close to the current counter value
+    // an alarm interrupt may be triggered very quickly after we start the timer
     timer_ll_enable_counter(timer->hal.dev, timer->timer_id, true);
+    atomic_store(&timer->fsm, GPTIMER_FSM_RUN);
     portEXIT_CRITICAL_SAFE(&timer->spinlock);
   } else {
+    // return error if the timer is not in the expected state
     return ESP_ERR_INVALID_STATE;
   }
-
-  atomic_store(&timer->fsm, GPTIMER_FSM_RUN);
   return ESP_OK;
 }
 
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_stop(gptimer_handle_t timer) {
-  ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
-
+  if (timer == NULL) {
+    // not printing error message here because the return value already indicates the error well
+    return ESP_ERR_INVALID_ARG;
+  }
+  // if the timer is not started, do nothing
+  if (atomic_load(&timer->fsm) == GPTIMER_FSM_ENABLE) {
+    return ESP_OK;
+  }
   gptimer_fsm_t expected_fsm = GPTIMER_FSM_RUN;
-  if (atomic_compare_exchange_strong(&timer->fsm, &expected_fsm, GPTIMER_FSM_ENABLE_WAIT)) {
+  if (atomic_compare_exchange_strong(&timer->fsm, &expected_fsm, GPTIMER_FSM_WAIT)) {
     // disable counter, alarm, auto-reload
     portENTER_CRITICAL_SAFE(&timer->spinlock);
     timer_ll_enable_counter(timer->hal.dev, timer->timer_id, false);
     timer_ll_enable_alarm(timer->hal.dev, timer->timer_id, false);
+    atomic_store(&timer->fsm, GPTIMER_FSM_ENABLE);
     portEXIT_CRITICAL_SAFE(&timer->spinlock);
   } else {
+    // return error if the timer is not in the expected state
     return ESP_ERR_INVALID_STATE;
   }
-  atomic_store(&timer->fsm, GPTIMER_FSM_ENABLE);
   return ESP_OK;
 }
 
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_alarm_action(gptimer_handle_t timer, const gptimer_alarm_config_t* config) {
-  ESP_RETURN_ON_FALSE_ISR(timer, ESP_ERR_INVALID_ARG, "inlined_gptimer", "invalid argument");
-
+  if (timer == NULL) {
+    return ESP_ERR_INVALID_ARG;
+  }
   if (config) {
 #if CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM
-    ESP_RETURN_ON_FALSE_ISR(esp_ptr_internal(config), ESP_ERR_INVALID_ARG, "inlined_gptimer", "alarm config struct not in internal RAM");
+    // when the function is placed in IRAM, we expect the config struct is also placed in internal RAM
+    // if the cache is disabled, the function can still access the config struct
+    if (esp_ptr_internal(config) == false) {
+      return ESP_ERR_INVALID_ARG;
+    }
 #endif
     // When auto_reload is enabled, alarm_count should not be equal to reload_count
     bool valid_auto_reload = !config->flags.auto_reload_on_alarm || config->alarm_count != config->reload_count;
-    ESP_RETURN_ON_FALSE_ISR(valid_auto_reload, ESP_ERR_INVALID_ARG, "inlined_gptimer", "reload count can't equal to alarm count");
+    if (valid_auto_reload == false) {
+      return ESP_ERR_INVALID_ARG;
+    }
 
     portENTER_CRITICAL_SAFE(&timer->spinlock);
     timer->reload_count = config->reload_count;
@@ -160,7 +177,6 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_alarm_action
     timer_ll_set_reload_value(timer->hal.dev, timer->timer_id, config->reload_count);
     timer_ll_set_alarm_value(timer->hal.dev, timer->timer_id, config->alarm_count);
     portEXIT_CRITICAL_SAFE(&timer->spinlock);
-
   } else {
     portENTER_CRITICAL_SAFE(&timer->spinlock);
     timer->flags.auto_reload_on_alarm = false;
