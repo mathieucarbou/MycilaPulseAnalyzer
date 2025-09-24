@@ -1,6 +1,6 @@
 {
   "name": "MycilaPulseAnalyzer",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit",
   "keywords": "configuration",
   "homepage": "https://github.com/mathieucarbou/MycilaPulseAnalyzer",
