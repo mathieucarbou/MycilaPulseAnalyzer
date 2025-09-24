@@ -24,7 +24,7 @@
 #ifdef CONFIG_IDF_TARGET_ESP32C3
   #define PIN_OUTPUT gpio_num_t::GPIO_NUM_21
 #else
-  #define PIN_OUTPUT gpio_num_t::GPIO_NUM_25
+  #define PIN_OUTPUT gpio_num_t::GPIO_NUM_26
 #endif
 
 static void ARDUINO_ISR_ATTR wait1us() {

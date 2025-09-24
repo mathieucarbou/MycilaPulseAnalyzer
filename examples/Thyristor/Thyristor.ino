@@ -28,7 +28,7 @@
 #ifdef CONFIG_IDF_TARGET_ESP32C3
   #define PIN_THYRISTOR gpio_num_t::GPIO_NUM_21
 #else
-  #define PIN_THYRISTOR gpio_num_t::GPIO_NUM_25
+  #define PIN_THYRISTOR gpio_num_t::GPIO_NUM_26
 #endif
 
 // Minimum delay to reach the voltage required for a gate current of 30mA.
