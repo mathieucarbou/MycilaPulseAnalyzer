@@ -76,7 +76,7 @@ extern Mycila::Logger logger;
 #define MYCILA_PULSE_MIN_WIDTH_US 100
 #define MYCILA_PULSE_MAX_WIDTH_US 21000
 
-#define PERIODS_LEN 15
+#define PERIODS_LEN 10 // array length of the PERIODS and SEMI_PERIODS arrays
 
 static constexpr uint16_t PERIODS[] = {
   MYCILA_PERIOD_48_US,
