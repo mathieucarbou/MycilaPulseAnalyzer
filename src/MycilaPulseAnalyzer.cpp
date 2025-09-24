@@ -203,6 +203,14 @@ bool Mycila::PulseAnalyzer::begin(int8_t pinZC) {
 
   attachInterruptArg(_pinZC, _edgeISR, this, CHANGE);
 
+  // start watchdog timer
+  gptimer_alarm_config_t online_alarm_cfg;
+  online_alarm_cfg.alarm_count = 20 * MYCILA_PERIOD_48_US; // more than 400 ms
+  online_alarm_cfg.reload_count = 0;
+  online_alarm_cfg.flags.auto_reload_on_alarm = true;
+  ESP_ERROR_CHECK(gptimer_set_alarm_action(_onlineTimer, &online_alarm_cfg));
+  ESP_ERROR_CHECK(gptimer_set_raw_count(_onlineTimer, 0));
+
   return true;
 }
 
@@ -287,20 +295,6 @@ void ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_edgeISR(void* arg) {
   uint64_t diff;
   if (inlined_gptimer_get_raw_count(onlineTimer, &diff) != ESP_OK)
     return;
-
-  // connected for the first time ?
-  if (!diff) {
-    gptimer_alarm_config_t online_alarm_cfg;
-    online_alarm_cfg.alarm_count = 20 * MYCILA_PERIOD_48_US; // more than 400 ms
-    online_alarm_cfg.reload_count = 0;
-    online_alarm_cfg.flags.auto_reload_on_alarm = true;
-    if (inlined_gptimer_set_raw_count(onlineTimer, 0) != ESP_OK || inlined_gptimer_set_alarm_action(onlineTimer, &online_alarm_cfg) != ESP_OK)
-      return;
-#ifdef MYCILA_PULSE_DEBUG
-    ets_printf("init\n");
-#endif
-    return;
-  }
 
   // Filter out spurious interrupts happening during a slow rising / falling slope
   // See: https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection
