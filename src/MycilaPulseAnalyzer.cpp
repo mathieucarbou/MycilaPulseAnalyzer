@@ -120,17 +120,17 @@ __attribute__((always_inline)) inline static uint16_t closest(const uint16_t* ar
       right = mid - 1; // right can become before left
   }
 
-  // target is between left and right and right can be before left
-  if (left >= PERIODS_LEN || array[right] == n)
-    return array[right];
-  if (right < 0 || array[left] == n)
-    return array[left];
+  // Safely handle bounds - ensure we don't access invalid array indices
+  if (right < 0)
+    return array[0]; // Use first element if right underflowed
+  if (left >= PERIODS_LEN)
+    return array[PERIODS_LEN - 1]; // Use last element if left overflowed
 
-  // return the closest value
-  return ((array[left] > n ? array[left] - n : n - array[left]) <
-          (array[right] > n ? array[right] - n : n - array[right]))
-           ? array[left]
-           : array[right];
+  // Both indices are valid, return the closest value
+  uint16_t leftDiff = (array[left] > n) ? (array[left] - n) : (n - array[left]);
+  uint16_t rightDiff = (array[right] > n) ? (array[right] - n) : (n - array[right]);
+
+  return (leftDiff < rightDiff) ? array[left] : array[right];
 }
 
 #ifdef MYCILA_JSON_SUPPORT
