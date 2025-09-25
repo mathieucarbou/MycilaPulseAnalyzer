@@ -17,7 +17,7 @@
 #include <hal/gpio_ll.h>
 #include <soc/gpio_struct.h>
 
-#include <inlined_gptimer.h>
+#include "priv/inlined_gptimer.h"
 
 #include <esp32-hal.h>
 
