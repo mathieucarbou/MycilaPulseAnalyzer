@@ -101,55 +101,6 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_raw_count(gp
   return ESP_OK;
 }
 
-__attribute__((always_inline)) inline esp_err_t inlined_gptimer_start(gptimer_handle_t timer) {
-  if (timer == NULL) {
-    return ESP_ERR_INVALID_ARG;
-  }
-  if (atomic_load(&timer->fsm) == GPTIMER_FSM_RUN) {
-    return ESP_OK;
-  }
-  gptimer_fsm_t expected_fsm = GPTIMER_FSM_ENABLE;
-  if (atomic_compare_exchange_strong(&timer->fsm, &expected_fsm, GPTIMER_FSM_WAIT)) {
-    // the register used by the following LL functions are shared with other API,
-    // which is possible to run along with this function, so we need to protect
-    portENTER_CRITICAL_SAFE(&timer->spinlock);
-    timer_ll_enable_alarm(timer->hal.dev, timer->timer_id, timer->flags.alarm_en);
-    // Note here, if the alarm target is set very close to the current counter value
-    // an alarm interrupt may be triggered very quickly after we start the timer
-    timer_ll_enable_counter(timer->hal.dev, timer->timer_id, true);
-    atomic_store(&timer->fsm, GPTIMER_FSM_RUN);
-    portEXIT_CRITICAL_SAFE(&timer->spinlock);
-  } else {
-    // return error if the timer is not in the expected state
-    return ESP_ERR_INVALID_STATE;
-  }
-  return ESP_OK;
-}
-
-__attribute__((always_inline)) inline esp_err_t inlined_gptimer_stop(gptimer_handle_t timer) {
-  if (timer == NULL) {
-    // not printing error message here because the return value already indicates the error well
-    return ESP_ERR_INVALID_ARG;
-  }
-  // if the timer is not started, do nothing
-  if (atomic_load(&timer->fsm) == GPTIMER_FSM_ENABLE) {
-    return ESP_OK;
-  }
-  gptimer_fsm_t expected_fsm = GPTIMER_FSM_RUN;
-  if (atomic_compare_exchange_strong(&timer->fsm, &expected_fsm, GPTIMER_FSM_WAIT)) {
-    // disable counter, alarm, auto-reload
-    portENTER_CRITICAL_SAFE(&timer->spinlock);
-    timer_ll_enable_counter(timer->hal.dev, timer->timer_id, false);
-    timer_ll_enable_alarm(timer->hal.dev, timer->timer_id, false);
-    atomic_store(&timer->fsm, GPTIMER_FSM_ENABLE);
-    portEXIT_CRITICAL_SAFE(&timer->spinlock);
-  } else {
-    // return error if the timer is not in the expected state
-    return ESP_ERR_INVALID_STATE;
-  }
-  return ESP_OK;
-}
-
 __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_alarm_action(gptimer_handle_t timer, const gptimer_alarm_config_t* config) {
   if (timer == NULL) {
     return ESP_ERR_INVALID_ARG;

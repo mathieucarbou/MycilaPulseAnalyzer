@@ -14,7 +14,7 @@
 #include <soc/gpio_struct.h>
 
 // timers
-#include <inlined_gptimer.h>
+#include "priv/inlined_gptimer.h"
 
 // logging
 #include <esp32-hal-log.h>
@@ -220,12 +220,12 @@ void Mycila::PulseAnalyzer::end() {
 
   LOGI(TAG, "Disable Pulse Analyzer on pin %" PRIu8, (uint8_t)_pinZC);
 
-  inlined_gptimer_stop(_onlineTimer);
+  ESP_ERROR_CHECK(gptimer_stop(_onlineTimer));
   ESP_ERROR_CHECK(gptimer_disable(_onlineTimer));
   ESP_ERROR_CHECK(gptimer_del_timer(_onlineTimer));
   _onlineTimer = NULL;
 
-  inlined_gptimer_stop(_zcTimer);
+  ESP_ERROR_CHECK(gptimer_stop(_zcTimer));
   ESP_ERROR_CHECK(gptimer_disable(_zcTimer));
   ESP_ERROR_CHECK(gptimer_del_timer(_zcTimer));
   _zcTimer = NULL;

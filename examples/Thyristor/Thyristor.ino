@@ -109,7 +109,7 @@ void setup() {
   timer_callbacks.on_alarm = onThyristorTimer;
   ESP_ERROR_CHECK(gptimer_register_event_callbacks(thyristorTimer, &timer_callbacks, nullptr));
   ESP_ERROR_CHECK(gptimer_enable(thyristorTimer));
-  ESP_ERROR_CHECK(inlined_gptimer_start(thyristorTimer));
+  ESP_ERROR_CHECK(gptimer_start(thyristorTimer));
 
   pulseAnalyzer.onZeroCross(onZeroCross);
   pulseAnalyzer.begin(35);
