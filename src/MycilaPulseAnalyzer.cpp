@@ -263,9 +263,6 @@ bool ARDUINO_ISR_ATTR Mycila::PulseAnalyzer::_onlineTimerISR(gptimer_handle_t ti
   inlined_gptimer_set_raw_count(instance->_zcTimer, 0);
   inlined_gptimer_set_alarm_action(instance->_zcTimer, nullptr);
 
-  inlined_gptimer_set_raw_count(instance->_onlineTimer, 0);
-  inlined_gptimer_set_alarm_action(instance->_onlineTimer, nullptr);
-
   instance->_size = 0;
   instance->_lastEvent = Event::SIGNAL_NONE;
   instance->_type = Type::TYPE_UNKNOWN;
