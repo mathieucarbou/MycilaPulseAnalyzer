@@ -12,10 +12,10 @@
 #include <hal/gpio_types.h>
 #include <stddef.h>
 
-#define MYCILA_PULSE_VERSION          "3.0.8"
+#define MYCILA_PULSE_VERSION          "3.0.9"
 #define MYCILA_PULSE_VERSION_MAJOR    3
 #define MYCILA_PULSE_VERSION_MINOR    0
-#define MYCILA_PULSE_VERSION_REVISION 8
+#define MYCILA_PULSE_VERSION_REVISION 9
 
 // sample count for analysis
 #define MYCILA_PULSE_SAMPLES 50
