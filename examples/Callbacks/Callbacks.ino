@@ -2,12 +2,7 @@
 /*
  * Copyright (C) 2023-2025 Mathieu Carbou
  *
- * Run with:
- *  -D CONFIG_ARDUINO_ISR_IRAM=1
- *  -D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
- *  -D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
- *  -D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
- *  -D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
+ * Run with: -D CONFIG_ARDUINO_ISR_IRAM=1
  *
  * To shift the the ZC event, use: -D MYCILA_PULSE_ZC_SHIFT_US=x
  */

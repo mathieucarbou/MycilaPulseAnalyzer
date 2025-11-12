@@ -106,7 +106,8 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_alarm_action
     return ESP_ERR_INVALID_ARG;
   }
   if (config) {
-#if CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM
+// #if CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM
+#if CONFIG_ARDUINO_ISR_IRAM
     // when the function is placed in IRAM, we expect the config struct is also placed in internal RAM
     // if the cache is disabled, the function can still access the config struct
     if (esp_ptr_internal(config) == false) {
