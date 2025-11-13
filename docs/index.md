@@ -104,6 +104,10 @@ You can run the app with:
 
 ```
 -D CONFIG_ARDUINO_ISR_IRAM=1
+-D CONFIG_GPTIMER_ISR_HANDLER_IN_IRAM=1
+-D CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM=1
+-D CONFIG_GPTIMER_ISR_IRAM_SAFE=1
+-D CONFIG_GPIO_CTRL_FUNC_IN_IRAM=1
 ```
 
 This will improve interrupt reliability (they will continue working even during flash operation).
