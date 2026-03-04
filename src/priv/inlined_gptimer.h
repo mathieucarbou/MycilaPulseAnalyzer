@@ -26,6 +26,8 @@
 // FROM gptimer_priv.h
 ///////////////////////////////////////////////////////////////////////////
 
+typedef struct gptimer_t gptimer_t;
+
 typedef struct gptimer_group_t {
     int group_id;
     portMUX_TYPE spinlock; // to protect per-group register level concurrent access
@@ -69,7 +71,7 @@ struct gptimer_t {
 // FROM gptimer.c
 ///////////////////////////////////////////////////////////////////////////
 
-__attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, unsigned long long* value) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gptimer_handle_t timer, uint64_t* value) {
   if (timer == NULL || value == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
@@ -80,22 +82,14 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_get_raw_count(gp
   return ESP_OK;
 }
 
-__attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_raw_count(gptimer_handle_t timer, unsigned long long value) {
+__attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_raw_count(gptimer_handle_t timer, uint64_t value) {
   if (timer == NULL) {
     return ESP_ERR_INVALID_ARG;
   }
   portENTER_CRITICAL_SAFE(&timer->spinlock);
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // - `timer_ll_set_reload_value()` will only indicate the `reload_value`
-  // - `timer_ll_set_reload_value()` + ``timer_ll_trigger_soft_reload()` can update the HW counter value by software
-  // Therefore, after updating the HW counter value, we need to restore the previous `reload_value`.
-  // Attention: The following process should be protected by a lock in the driver layer.
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // save current reload value
   uint64_t old_reload = timer_ll_get_reload_value((&timer->hal)->dev, (&timer->hal)->timer_id);
   timer_ll_set_reload_value((&timer->hal)->dev, (&timer->hal)->timer_id, value);
   timer_ll_trigger_soft_reload((&timer->hal)->dev, (&timer->hal)->timer_id);
-  // restore the previous reload value
   timer_ll_set_reload_value((&timer->hal)->dev, (&timer->hal)->timer_id, old_reload);
   portEXIT_CRITICAL_SAFE(&timer->spinlock);
   return ESP_OK;
@@ -106,8 +100,7 @@ __attribute__((always_inline)) inline esp_err_t inlined_gptimer_set_alarm_action
     return ESP_ERR_INVALID_ARG;
   }
   if (config) {
-// #if CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM
-#if CONFIG_ARDUINO_ISR_IRAM
+#if defined(CONFIG_ARDUINO_ISR_IRAM) || defined(CONFIG_GPTIMER_CTRL_FUNC_IN_IRAM)
     // when the function is placed in IRAM, we expect the config struct is also placed in internal RAM
     // if the cache is disabled, the function can still access the config struct
     if (esp_ptr_internal(config) == false) {
