@@ -22,6 +22,7 @@ This project also works with **[MycilaDimmer](https://mathieu.carbou.me/MycilaDi
 - [Use-Case: Thyristor TRIAC Control](#use-case-thyristor-triac-control)
 - [Use-Case: Know when the AC voltage is positive or negative](#use-case-know-when-the-ac-voltage-is-positive-or-negative)
 - [Readings](#readings)
+- [Sponsors](#sponsors)
 
 ## Features
 
@@ -49,7 +50,7 @@ This library is used in [YaSolR](https://yasolr.carbou.me) Solar Router to detec
 
 ## Supported ZCD Circuits
 
-- Square short pulse (e.g. [Zero-Cross Detector from Daniel](https://www.pcbway.com/project/shareproject/Zero_Cross_Detector_a707a878.html))
+- Square short pulse (e.g. [Zero-Cross Detector from Daniel S.](https://www.pcbway.com/project/shareproject/Zero_Cross_Detector_a707a878.html))
 
 - Slope pulse (e.g. [Robodyn ZCD](https://fr.aliexpress.com/item/1005006211999051.html))
 
@@ -235,3 +236,9 @@ Here is a blog post explaining how to use this library, with some oscilloscope s
 [https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection](https://yasolr.carbou.me/blog/2024-07-31_zero-cross_pulse_detection).
 
 [![](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_zc_isr_output_delay.jpeg)](https://mathieu.carbou.me/MycilaPulseAnalyzer/assets/Oscillo_zc_isr_output_delay.jpeg)
+
+## Sponsors
+
+[PCBWay](https://www.pcbway.com) kindly supported the development of this library by providing a batch of 20 [Zero-Cross Detection Circuits](https://www.pcbway.com/project/shareproject/Zero_Cross_Detector_a707a878.html) from Daniel S., a community project on PCBWay.
+
+[![](https://s3-eu-west-1.amazonaws.com/tpd/logos/54695d4a00006400057b939d/0x0.png)](https://www.pcbway.com)
