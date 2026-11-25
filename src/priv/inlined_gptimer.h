@@ -31,7 +31,11 @@ typedef struct gptimer_t gptimer_t;
 typedef struct gptimer_group_t {
     int group_id;
     portMUX_TYPE spinlock; // to protect per-group register level concurrent access
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0) // Arduino 3
     gptimer_t* timers[SOC_TIMER_GROUP_TIMERS_PER_GROUP];
+#else
+    gptimer_t* timers[TIMG_LL_GET(GPTIMERS_PER_INST)];
+#endif
 } gptimer_group_t;
 
 typedef enum {
@@ -56,9 +60,15 @@ struct gptimer_t {
     gptimer_alarm_cb_t on_alarm;
     void* user_ctx;
     gptimer_clock_source_t clk_src;
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0) // Arduino 3
     esp_pm_lock_handle_t pm_lock; // power management lock
-#if CONFIG_PM_ENABLE
+  #if CONFIG_PM_ENABLE
     char pm_lock_name[GPTIMER_PM_LOCK_NAME_LEN_MAX]; // pm lock name
+  #endif
+#else
+  #if CONFIG_PM_ENABLE
+    esp_pm_lock_handle_t pm_lock; // power management lock
+  #endif
 #endif
     struct {
         uint32_t intr_shared : 1;

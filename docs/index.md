@@ -6,6 +6,8 @@
 
 ESP32 / Arduino Library to analyze pulses from a Zero-Cross Detection circuit and manage the Zero-Cross pulse.
 
+Compatible with **ESP32 Arduino core 3 and 4**.
+
 This project also works with **[MycilaDimmer](https://mathieu.carbou.me/MycilaDimmer)**, a comprehensive ESP32/Arduino dimming library for controlling AC power devices including TRIACs, SSRs, and voltage regulators through multiple dimming methods.
 
 

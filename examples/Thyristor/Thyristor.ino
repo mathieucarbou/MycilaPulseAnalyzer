@@ -92,7 +92,7 @@ void setup() {
   timer_config.resolution_hz = 1000000; // 1MHz resolution
   timer_config.flags.intr_shared = true;
   timer_config.intr_priority = 0;
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
   timer_config.flags.backup_before_sleep = false;
 #endif
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 0)
